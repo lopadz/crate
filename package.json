@@ -8,23 +8,35 @@
     "hmr": "vite --port 5173",
     "build": "vite build && electrobun build",
     "build:prod": "vite build && electrobun build --channel prod",
-    "start": "bun run dev"
+    "test:main": "bun test src/bun/",
+    "test:ui": "vitest src/mainview/",
+    "test": "bun run test:main && bun run test:ui"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.2.0",
+    "@tanstack/virtual-core": "^3.13.18",
     "electrobun": "1.13.1",
+    "mediabunny": "^1.34.4",
     "react": "^19.2.4",
-    "react-dom": "^19.2.4"
+    "react-dom": "^19.2.4",
+    "react-resizable-panels": "^4.6.5",
+    "tone": "^15.1.22",
+    "wavesurfer.js": "^7.12.1",
+    "zustand": "^5.0.11"
   },
   "devDependencies": {
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/bun": "latest",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.4",
     "autoprefixer": "^10.4.24",
     "concurrently": "^9.2.1",
+    "happy-dom": "^20.7.0",
     "tailwindcss": "^4.2.0",
     "typescript": "^5.9.3",
-    "vite": "^7.3.1"
+    "vite": "^7.3.1",
+    "vitest": "^4.0.18"
   }
 }
