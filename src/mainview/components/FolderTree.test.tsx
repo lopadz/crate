@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 
 vi.mock("../rpc", () => ({
   rpcClient: {
-    request: { dbGetPinnedFolders: vi.fn(), fsListDirs: vi.fn(), fsGetHomeDir: vi.fn(), fsReaddir: vi.fn() },
+    request: { dbGetPinnedFolders: vi.fn(), fsListDirs: vi.fn(), fsOpenFolderDialog: vi.fn() },
     send: { dbPinFolder: vi.fn(), dbUnpinFolder: vi.fn() },
   },
 }));
@@ -28,8 +28,7 @@ beforeEach(() => {
   });
   (rc.request.dbGetPinnedFolders as ReturnType<typeof vi.fn>).mockResolvedValue([]);
   (rc.request.fsListDirs as ReturnType<typeof vi.fn>).mockResolvedValue([]);
-  (rc.request.fsGetHomeDir as ReturnType<typeof vi.fn>).mockResolvedValue("/Users/me");
-  (rc.request.fsReaddir as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+  (rc.request.fsOpenFolderDialog as ReturnType<typeof vi.fn>).mockResolvedValue([]);
 });
 
 describe("FolderTree", () => {
@@ -76,35 +75,41 @@ describe("FolderTree — pin/unpin", () => {
     expect(screen.getByTestId("add-folder-btn")).toBeDefined();
   });
 
-  test("clicking add-folder shows the FolderPicker at the home directory", async () => {
+  test("clicking add-folder calls fsOpenFolderDialog", async () => {
     render(<FolderTree />);
     await userEvent.click(screen.getByTestId("add-folder-btn"));
-    await waitFor(() =>
-      expect(screen.getByTestId("folder-picker-path").textContent).toContain("/Users/me"),
-    );
+    expect(rc.request.fsOpenFolderDialog).toHaveBeenCalledOnce();
   });
 
-  test("pinning from FolderPicker calls dbPinFolder, shows the folder, and closes picker", async () => {
-    (rc.request.fsListDirs as ReturnType<typeof vi.fn>).mockResolvedValue([
-      "/Users/me/Kicks",
+  test("selecting a folder via dialog pins it and shows it in the tree", async () => {
+    (rc.request.fsOpenFolderDialog as ReturnType<typeof vi.fn>).mockResolvedValue([
+      "/Users/me/Samples",
     ]);
     render(<FolderTree />);
     await userEvent.click(screen.getByTestId("add-folder-btn"));
-    await waitFor(() => screen.getByText("Kicks"));
-    await userEvent.click(screen.getByText("Kicks"));
-    await userEvent.click(screen.getByTestId("folder-picker-pin"));
-    expect(rc.send.dbPinFolder).toHaveBeenCalledWith({ path: "/Users/me/Kicks" });
-    await waitFor(() => expect(screen.queryByTestId("folder-picker")).toBeNull());
-    expect(screen.getByText("Kicks")).toBeDefined();
+    expect(rc.send.dbPinFolder).toHaveBeenCalledWith({ path: "/Users/me/Samples" });
+    await waitFor(() => expect(screen.getByText("Samples")).toBeDefined());
   });
 
-  test("cancelling FolderPicker closes it without pinning", async () => {
+  test("dialog returning multiple folders pins all of them", async () => {
+    (rc.request.fsOpenFolderDialog as ReturnType<typeof vi.fn>).mockResolvedValue([
+      "/Users/me/Drums",
+      "/Users/me/Synths",
+    ]);
     render(<FolderTree />);
     await userEvent.click(screen.getByTestId("add-folder-btn"));
-    expect(screen.getByTestId("folder-picker")).toBeDefined();
-    await userEvent.click(screen.getByTestId("folder-picker-cancel"));
+    expect(rc.send.dbPinFolder).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(screen.getByText("Drums")).toBeDefined());
+    expect(screen.getByText("Synths")).toBeDefined();
+  });
+
+  test("dialog returning empty array does not call dbPinFolder", async () => {
+    render(<FolderTree />);
+    await userEvent.click(screen.getByTestId("add-folder-btn"));
+    await waitFor(() =>
+      expect(rc.request.fsOpenFolderDialog).toHaveBeenCalledOnce(),
+    );
     expect(rc.send.dbPinFolder).not.toHaveBeenCalled();
-    expect(screen.queryByTestId("folder-picker")).toBeNull();
   });
 
   test("each pinned folder has an unpin button", async () => {
@@ -125,5 +130,23 @@ describe("FolderTree — pin/unpin", () => {
     await userEvent.click(screen.getByRole("button", { name: /unpin/i }));
     expect(rc.send.dbUnpinFolder).toHaveBeenCalledWith({ path: "/Users/me/Samples" });
     expect(screen.queryByText("Samples")).toBeNull();
+  });
+
+  test("selecting a folder via dialog sets it as activeFolder immediately", async () => {
+    (rc.request.fsOpenFolderDialog as ReturnType<typeof vi.fn>).mockResolvedValue([
+      "/Users/me/Samples",
+    ]);
+    render(<FolderTree />);
+    await userEvent.click(screen.getByTestId("add-folder-btn"));
+    await waitFor(() =>
+      expect(useBrowserStore.getState().activeFolder).toBe("/Users/me/Samples"),
+    );
+  });
+
+  test("dialog is always called with empty params (macOS remembers location)", async () => {
+    useBrowserStore.setState({ activeFolder: "/Users/me/Drums" });
+    render(<FolderTree />);
+    await userEvent.click(screen.getByTestId("add-folder-btn"));
+    expect(rc.request.fsOpenFolderDialog).toHaveBeenCalledWith({});
   });
 });

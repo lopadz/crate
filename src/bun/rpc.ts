@@ -27,14 +27,23 @@ async function runScan(
 // notifications to the renderer without a circular dependency.
 export function createRpc(onDirectoryChanged: (path: string) => void) {
   return BrowserView.defineRPC<CrateRPC>({
-    maxRequestTime: 5000,
+    maxRequestTime: Infinity,
     handlers: {
       requests: {
         fsReaddir: ({ path }) => readdir(path),
 
         fsListDirs: ({ path }) => listDirs(path),
 
-        fsGetHomeDir: () => Utils.paths.home,
+        fsOpenFolderDialog: async ({ directoryPath }) => {
+          const startingFolder = directoryPath ?? process.env.HOME ?? "/";
+          const paths = await Utils.openFileDialog({
+            canChooseDirectory: true,
+            canChooseFiles: false,
+            allowsMultipleSelection: true,
+            startingFolder,
+          });
+          return (paths ?? []).filter((p) => p.length > 0);
+        },
 
         fsGetMetadata: ({ path }) => {
           const file = queries.getFileByPath(path);

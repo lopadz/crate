@@ -47,7 +47,7 @@ export type CrateRPC = {
       // Filesystem
       fsReaddir: { params: { path: string }; response: AudioFile[] };
       fsListDirs: { params: { path: string }; response: string[] };
-      fsGetHomeDir: { params: Record<string, never>; response: string };
+      fsOpenFolderDialog: { params: { directoryPath?: string }; response: string[] };
       fsGetMetadata: {
         params: { path: string };
         response: AudioMetadata | null;

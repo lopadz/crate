@@ -5,6 +5,7 @@ import type { CrateRPC } from "../shared/types";
 // Dispatches a CustomEvent so React components can react without a direct
 // dependency on this module.
 const rpc = Electroview.defineRPC<CrateRPC>({
+  maxRequestTime: Infinity,
   handlers: {
     requests: {},
     messages: {
