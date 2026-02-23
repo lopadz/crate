@@ -1,4 +1,6 @@
 import { BrowserWindow, Updater, Utils } from "electrobun/bun";
+import { queries } from "./db";
+import { scanFolderRecursive } from "./filesystem";
 import { createRpc } from "./rpc";
 
 const DEV_SERVER_PORT = 5173;
@@ -46,5 +48,14 @@ notifyDirectoryChanged = (path) =>
 mainWindow.on("close", () => {
   Utils.quit();
 });
+
+// Re-index all pinned folders on startup to catch filesystem changes that
+// occurred while the app was closed. Fire-and-forget; no progress push needed
+// since the renderer hasn't loaded the folder list yet.
+for (const folderPath of queries.getPinnedFolders()) {
+  void scanFolderRecursive(folderPath, (files) =>
+    queries.upsertFilesFromScan(files),
+  );
+}
 
 console.log("Crate started.");

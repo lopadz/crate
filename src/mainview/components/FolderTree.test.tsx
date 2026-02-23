@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 
 vi.mock("../rpc", () => ({
   rpcClient: {
-    request: { dbGetPinnedFolders: vi.fn(), fsListDirs: vi.fn(), fsGetHomeDir: vi.fn() },
+    request: { dbGetPinnedFolders: vi.fn(), fsListDirs: vi.fn(), fsGetHomeDir: vi.fn(), fsReaddir: vi.fn() },
     send: { dbPinFolder: vi.fn(), dbUnpinFolder: vi.fn() },
   },
 }));
@@ -29,6 +29,7 @@ beforeEach(() => {
   (rc.request.dbGetPinnedFolders as ReturnType<typeof vi.fn>).mockResolvedValue([]);
   (rc.request.fsListDirs as ReturnType<typeof vi.fn>).mockResolvedValue([]);
   (rc.request.fsGetHomeDir as ReturnType<typeof vi.fn>).mockResolvedValue("/Users/me");
+  (rc.request.fsReaddir as ReturnType<typeof vi.fn>).mockResolvedValue([]);
 });
 
 describe("FolderTree", () => {

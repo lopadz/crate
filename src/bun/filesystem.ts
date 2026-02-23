@@ -48,6 +48,65 @@ export async function listDirs(dirPath: string): Promise<string[]> {
     .map((e) => join(dirPath, e.name));
 }
 
+const SCAN_BATCH_SIZE = 100;
+
+/**
+ * Recursively walks dirPath (breadth-first) and calls onBatch with groups of
+ * audio files. Non-blocking: each readdir awaits independently, yielding back
+ * to the event loop before the next directory is processed.
+ */
+export async function scanFolderRecursive(
+  dirPath: string,
+  onBatch: (files: AudioFile[]) => void,
+  signal?: AbortSignal,
+): Promise<{ total: number }> {
+  const queue = [dirPath];
+  let batch: AudioFile[] = [];
+  let total = 0;
+
+  while (queue.length > 0) {
+    if (signal?.aborted) break;
+
+    const current = queue.shift()!;
+    let entries;
+    try {
+      entries = await fsReaddir(current, { withFileTypes: true });
+    } catch {
+      continue; // permission denied or other OS error — skip this dir
+    }
+
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        queue.push(join(current, entry.name));
+        continue;
+      }
+      if (!entry.isFile() || !isAudioFile(entry.name)) continue;
+
+      const filePath = join(current, entry.name);
+      try {
+        const info = await stat(filePath);
+        batch.push({
+          path: filePath,
+          name: entry.name,
+          extension: extname(entry.name).toLowerCase(),
+          size: info.size,
+        });
+        total++;
+      } catch {
+        continue; // file disappeared between readdir and stat
+      }
+
+      if (batch.length >= SCAN_BATCH_SIZE) {
+        onBatch(batch);
+        batch = [];
+      }
+    }
+  }
+
+  if (batch.length > 0) onBatch(batch);
+  return { total };
+}
+
 // Returns an unsubscribe function that stops the watcher.
 export function watchDirectory(
   dirPath: string,

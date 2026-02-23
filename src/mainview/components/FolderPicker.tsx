@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { rpcClient } from "../rpc";
+import type { AudioFile } from "../../shared/types";
 import { basename } from "../utils/path";
 
 interface FolderPickerProps {
@@ -18,9 +19,11 @@ function parentDir(path: string): string {
 export function FolderPicker({ initialPath, onPin, onClose }: FolderPickerProps) {
   const [currentPath, setCurrentPath] = useState(initialPath);
   const [subdirs, setSubdirs] = useState<string[]>([]);
+  const [files, setFiles] = useState<AudioFile[]>([]);
 
   useEffect(() => {
     rpcClient?.request.fsListDirs({ path: currentPath }).then(setSubdirs);
+    rpcClient?.request.fsReaddir({ path: currentPath }).then(setFiles);
   }, [currentPath]);
 
   function handleUp() {
@@ -53,10 +56,22 @@ export function FolderPicker({ initialPath, onPin, onClose }: FolderPickerProps)
         {subdirs.map((dir) => (
           <div
             key={dir}
-            className="px-3 py-1 hover:bg-[#2a2a2a] cursor-pointer text-sm"
+            data-testid="folder-picker-dir"
+            className="flex items-center gap-2 px-3 py-1 hover:bg-[#2a2a2a] cursor-pointer text-sm text-gray-200"
             onClick={() => handleNavigate(dir)}
           >
+            <span className="text-gray-500 text-xs">▶</span>
             {basename(dir)}
+          </div>
+        ))}
+        {files.map((file) => (
+          <div
+            key={file.path}
+            data-testid="folder-picker-file"
+            className="flex items-center gap-2 px-3 py-1 text-sm text-gray-500 select-none"
+          >
+            <span className="text-xs">♪</span>
+            {file.name}
           </div>
         ))}
       </div>

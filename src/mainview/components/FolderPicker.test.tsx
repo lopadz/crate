@@ -2,13 +2,14 @@ import { vi, describe, test, expect, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-const { mockFsListDirs } = vi.hoisted(() => ({
+const { mockFsListDirs, mockFsReaddir } = vi.hoisted(() => ({
   mockFsListDirs: vi.fn(),
+  mockFsReaddir: vi.fn(),
 }));
 
 vi.mock("../rpc", () => ({
   rpcClient: {
-    request: { fsListDirs: mockFsListDirs },
+    request: { fsListDirs: mockFsListDirs, fsReaddir: mockFsReaddir },
   },
 }));
 
@@ -17,6 +18,7 @@ import { FolderPicker } from "./FolderPicker";
 beforeEach(() => {
   vi.clearAllMocks();
   mockFsListDirs.mockResolvedValue(["/start/Drums", "/start/Bass", "/start/FX"]);
+  mockFsReaddir.mockResolvedValue([]);
 });
 
 describe("FolderPicker", () => {
@@ -78,5 +80,27 @@ describe("FolderPicker", () => {
     render(<FolderPicker initialPath="/start" onPin={() => {}} onClose={onClose} />);
     await userEvent.click(screen.getByTestId("folder-picker-cancel"));
     expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  test("lists audio files in the current directory", async () => {
+    mockFsReaddir.mockResolvedValue([
+      { path: "/start/kick.wav", name: "kick.wav", extension: ".wav", size: 1000 },
+      { path: "/start/snare.wav", name: "snare.wav", extension: ".wav", size: 2000 },
+    ]);
+    render(<FolderPicker initialPath="/start" onPin={() => {}} onClose={() => {}} />);
+    await waitFor(() => expect(screen.getByText("kick.wav")).toBeDefined());
+    expect(screen.getByText("snare.wav")).toBeDefined();
+  });
+
+  test("directories and files have distinct testids", async () => {
+    mockFsListDirs.mockResolvedValue(["/start/Drums"]);
+    mockFsReaddir.mockResolvedValue([
+      { path: "/start/kick.wav", name: "kick.wav", extension: ".wav", size: 1000 },
+    ]);
+    render(<FolderPicker initialPath="/start" onPin={() => {}} onClose={() => {}} />);
+    await waitFor(() => screen.getByText("Drums"));
+    await waitFor(() => screen.getByText("kick.wav"));
+    expect(screen.getAllByTestId("folder-picker-dir")).toHaveLength(1);
+    expect(screen.getAllByTestId("folder-picker-file")).toHaveLength(1);
   });
 });

@@ -1,8 +1,8 @@
 import { describe, test, expect } from "bun:test";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { isAudioFile, readdir, listDirs, watchDirectory, AUDIO_EXTENSIONS } from "./filesystem";
+import { isAudioFile, readdir, listDirs, watchDirectory, scanFolderRecursive, AUDIO_EXTENSIONS } from "./filesystem";
 
 function makeTempDir(files: string[]) {
   const dir = mkdtempSync(join(tmpdir(), "crate-test-"));
@@ -165,6 +165,102 @@ describe("watchDirectory", () => {
       const unsubscribe = watchDirectory(dir, () => {});
       expect(typeof unsubscribe).toBe("function");
       unsubscribe();
+    } finally {
+      cleanup();
+    }
+  });
+});
+
+// ─── scanFolderRecursive ──────────────────────────────────────────────────────
+
+describe("scanFolderRecursive", () => {
+  test("finds audio files in the root directory", async () => {
+    const { dir, cleanup } = makeTempDir(["kick.wav", "snare.mp3", "photo.jpg"]);
+    try {
+      const found: string[] = [];
+      await scanFolderRecursive(dir, (files) => found.push(...files.map((f) => f.name)));
+      expect(found).toContain("kick.wav");
+      expect(found).toContain("snare.mp3");
+      expect(found).not.toContain("photo.jpg");
+    } finally {
+      cleanup();
+    }
+  });
+
+  test("recursively finds audio files in subdirectories", async () => {
+    const { dir, cleanup } = makeTempDir(["root.wav"]);
+    try {
+      mkdirSync(join(dir, "Drums"));
+      writeFileSync(join(dir, "Drums", "kick.wav"), "x");
+      writeFileSync(join(dir, "Drums", "photo.jpg"), "x");
+
+      const found: string[] = [];
+      await scanFolderRecursive(dir, (files) => found.push(...files.map((f) => f.name)));
+      expect(found).toContain("root.wav");
+      expect(found).toContain("kick.wav");
+      expect(found).not.toContain("photo.jpg");
+    } finally {
+      cleanup();
+    }
+  });
+
+  test("returns correct total count across nested dirs", async () => {
+    const { dir, cleanup } = makeTempDir(["a.wav"]);
+    try {
+      mkdirSync(join(dir, "sub"));
+      writeFileSync(join(dir, "sub", "b.mp3"), "x");
+      writeFileSync(join(dir, "ignored.txt"), "x");
+
+      const result = await scanFolderRecursive(dir, () => {});
+      expect(result.total).toBe(2);
+    } finally {
+      cleanup();
+    }
+  });
+
+  test("returns AudioFile objects with correct shape", async () => {
+    const { dir, cleanup } = makeTempDir(["kick.wav"]);
+    try {
+      let captured: Parameters<Parameters<typeof scanFolderRecursive>[1]>[0] = [];
+      await scanFolderRecursive(dir, (files) => { captured = files; });
+      const [f] = captured;
+      expect(f.name).toBe("kick.wav");
+      expect(f.extension).toBe(".wav");
+      expect(f.path).toContain("kick.wav");
+      expect(typeof f.size).toBe("number");
+    } finally {
+      cleanup();
+    }
+  });
+
+  test("each file gets a unique path in the result", async () => {
+    const { dir, cleanup } = makeTempDir(["a.wav", "b.wav"]);
+    try {
+      const paths: string[] = [];
+      await scanFolderRecursive(dir, (files) => paths.push(...files.map((f) => f.path)));
+      expect(new Set(paths).size).toBe(paths.length);
+    } finally {
+      cleanup();
+    }
+  });
+
+  test("aborts immediately when signal is pre-aborted", async () => {
+    const { dir, cleanup } = makeTempDir(["a.wav", "b.wav", "c.wav"]);
+    try {
+      const controller = new AbortController();
+      controller.abort();
+      const result = await scanFolderRecursive(dir, () => {}, controller.signal);
+      expect(result.total).toBe(0);
+    } finally {
+      cleanup();
+    }
+  });
+
+  test("returns empty result for an empty directory", async () => {
+    const { dir, cleanup } = makeTempDir([]);
+    try {
+      const result = await scanFolderRecursive(dir, () => {});
+      expect(result.total).toBe(0);
     } finally {
       cleanup();
     }

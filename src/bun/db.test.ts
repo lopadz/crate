@@ -161,3 +161,61 @@ describe("upsertFile", () => {
     expect(q.getFileByPath("/a/kick.wav")?.composite_id).toBe("abc");
   });
 });
+
+// ─── upsertFilesFromScan ──────────────────────────────────────────────────────
+
+describe("upsertFilesFromScan", () => {
+  let q: ReturnType<typeof createQueryHelpers>;
+
+  beforeEach(() => {
+    q = createQueryHelpers(makeDb());
+  });
+
+  test("inserts files with a non-empty placeholder composite_id", () => {
+    q.upsertFilesFromScan([{ path: "/a/kick.wav", extension: ".wav" }]);
+    const f = q.getFileByPath("/a/kick.wav");
+    expect(f).not.toBeNull();
+    expect(f?.composite_id).toBeTruthy();
+    expect(f?.composite_id).not.toBe("");
+  });
+
+  test("each file gets a unique placeholder composite_id", () => {
+    q.upsertFilesFromScan([
+      { path: "/a/kick.wav", extension: ".wav" },
+      { path: "/a/snare.wav", extension: ".wav" },
+    ]);
+    const id1 = q.getFileByPath("/a/kick.wav")?.composite_id;
+    const id2 = q.getFileByPath("/a/snare.wav")?.composite_id;
+    expect(id1).not.toBe(id2);
+  });
+
+  test("placeholder composite_id is stable across re-scans", () => {
+    q.upsertFilesFromScan([{ path: "/a/kick.wav", extension: ".wav" }]);
+    const id1 = q.getFileByPath("/a/kick.wav")?.composite_id;
+    q.upsertFilesFromScan([{ path: "/a/kick.wav", extension: ".wav" }]);
+    const id2 = q.getFileByPath("/a/kick.wav")?.composite_id;
+    expect(id1).toBe(id2);
+  });
+
+  test("preserves a real composite_id set by analysis — does not overwrite", () => {
+    q.upsertFile({ path: "/a/kick.wav", compositeId: "real-composite-id", duration: 1.5 });
+    q.upsertFilesFromScan([{ path: "/a/kick.wav", extension: ".wav" }]);
+    expect(q.getFileByPath("/a/kick.wav")?.composite_id).toBe("real-composite-id");
+  });
+
+  test("handles a batch of multiple files in one transaction", () => {
+    const files = [
+      { path: "/a/kick.wav", extension: ".wav" },
+      { path: "/a/snare.wav", extension: ".wav" },
+      { path: "/a/hat.mp3", extension: ".mp3" },
+    ];
+    q.upsertFilesFromScan(files);
+    for (const f of files) {
+      expect(q.getFileByPath(f.path)).not.toBeNull();
+    }
+  });
+
+  test("handles an empty array without error", () => {
+    expect(() => q.upsertFilesFromScan([])).not.toThrow();
+  });
+});

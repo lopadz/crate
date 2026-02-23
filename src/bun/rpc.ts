@@ -1,10 +1,27 @@
 import { BrowserView, Utils } from "electrobun/bun";
 import type { CrateRPC } from "../shared/types";
 import { queries } from "./db";
-import { listDirs, readdir, watchDirectory } from "./filesystem";
+import { listDirs, readdir, scanFolderRecursive, watchDirectory } from "./filesystem";
 
 // Active directory watchers — keyed by path
 const watchers = new Map<string, () => void>();
+
+// Active scan controllers — keyed by folder path.
+// Allows aborting an in-progress scan if the folder is unpinned.
+const scanControllers = new Map<string, AbortController>();
+
+async function runScan(
+  path: string,
+  signal: AbortSignal,
+  onDone: (path: string) => void,
+): Promise<void> {
+  await scanFolderRecursive(
+    path,
+    (files) => queries.upsertFilesFromScan(files),
+    signal,
+  );
+  if (!signal.aborted) onDone(path);
+}
 
 // createRpc accepts a callback so index.ts can forward directory-change
 // notifications to the renderer without a circular dependency.
@@ -49,9 +66,20 @@ export function createRpc(onDirectoryChanged: (path: string) => void) {
         dbSetColorTag: ({ path, color }) =>
           queries.setColorTagByPath(path, color),
 
-        dbPinFolder: ({ path }) => queries.pinFolder(path),
+        dbPinFolder: ({ path }) => {
+          queries.pinFolder(path);
+          const controller = new AbortController();
+          scanControllers.set(path, controller);
+          void runScan(path, controller.signal, onDirectoryChanged).finally(() => {
+            scanControllers.delete(path);
+          });
+        },
 
-        dbUnpinFolder: ({ path }) => queries.unpinFolder(path),
+        dbUnpinFolder: ({ path }) => {
+          scanControllers.get(path)?.abort();
+          scanControllers.delete(path);
+          queries.unpinFolder(path);
+        },
 
         dbRecordPlay: ({ compositeId }) => queries.recordPlay(compositeId),
 

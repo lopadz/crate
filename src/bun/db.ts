@@ -108,6 +108,15 @@ export function computeCompositeId(
   return hasher.digest("hex");
 }
 
+// Placeholder composite_id used at scan time when audio duration/sampleRate
+// are not yet known. Replaced with hash(filename:duration:sampleRate) when the
+// Phase 2 analysis worker processes the file.
+function pathHash(path: string): string {
+  const hasher = new Bun.CryptoHasher("sha256");
+  hasher.update(path);
+  return hasher.digest("hex");
+}
+
 export function createQueryHelpers(db: Database) {
   const getFileTagsStmt = db.prepare(
     `SELECT t.id, t.name, t.color, t.sort_order
@@ -167,6 +176,29 @@ export function createQueryHelpers(db: Database) {
 
   const setSettingStmt = db.prepare(
     `INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)`,
+  );
+
+  // Scan-time upsert: inserts a file with a path-hash placeholder composite_id.
+  // On conflict, only updates last_seen_at (and fills format if missing).
+  // Does NOT overwrite a real composite_id set by the Phase 2 analysis worker.
+  const upsertFileScanStmt = db.prepare(
+    `INSERT INTO files (path, composite_id, format, last_seen_at)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT(path) DO UPDATE SET
+       last_seen_at = excluded.last_seen_at,
+       format       = COALESCE(NULLIF(format, ''), excluded.format),
+       composite_id = CASE WHEN composite_id = '' THEN excluded.composite_id ELSE composite_id END`,
+  );
+
+  const upsertFilesFromScanTx = db.transaction(
+    (files: Array<{ path: string; extension: string }>) => {
+      const now = Date.now();
+      for (const f of files) {
+        // extension includes the leading dot (.wav) — strip it for the format column
+        const format = f.extension.startsWith(".") ? f.extension.slice(1) : f.extension;
+        upsertFileScanStmt.run(f.path, pathHash(f.path), format, now);
+      }
+    },
   );
 
   return {
@@ -254,6 +286,10 @@ export function createQueryHelpers(db: Database) {
 
     setSetting(key: string, value: string): void {
       setSettingStmt.run(key, value);
+    },
+
+    upsertFilesFromScan(files: Array<{ path: string; extension: string }>): void {
+      upsertFilesFromScanTx(files);
     },
   };
 }
