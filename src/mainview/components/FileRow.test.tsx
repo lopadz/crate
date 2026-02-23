@@ -1,6 +1,6 @@
-import { vi, describe, test, expect, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import type { AudioFile } from "../../shared/types";
 
 const { mockDbSetColorTag } = vi.hoisted(() => ({
@@ -13,14 +13,15 @@ vi.mock("../rpc", () => ({
   },
 }));
 
-import { FileRow } from "./FileRow";
 import { useBrowserStore } from "../stores/browserStore";
+import { FileRow } from "./FileRow";
 
 const baseFile: AudioFile = {
   path: "/Samples/kick.wav",
   name: "kick.wav",
   extension: ".wav",
   size: 1_048_576, // 1 MB
+  compositeId: "cid-kick",
 };
 
 const fileWithMeta: AudioFile = {
@@ -58,7 +59,9 @@ describe("FileRow", () => {
   });
 
   test("renders formatted duration when available", () => {
-    render(<FileRow file={fileWithMeta} isSelected={false} onClick={() => {}} />);
+    render(
+      <FileRow file={fileWithMeta} isSelected={false} onClick={() => {}} />,
+    );
     expect(screen.getByText("1:23")).toBeDefined();
   });
 
@@ -87,22 +90,46 @@ describe("FileRow", () => {
   });
 
   test("shows green color tag badge", () => {
-    render(<FileRow file={{ ...baseFile, colorTag: "green" }} isSelected={false} onClick={() => {}} />);
+    render(
+      <FileRow
+        file={{ ...baseFile, colorTag: "green" }}
+        isSelected={false}
+        onClick={() => {}}
+      />,
+    );
     expect(screen.getByTestId("color-tag-green")).toBeDefined();
   });
 
   test("shows yellow color tag badge", () => {
-    render(<FileRow file={{ ...baseFile, colorTag: "yellow" }} isSelected={false} onClick={() => {}} />);
+    render(
+      <FileRow
+        file={{ ...baseFile, colorTag: "yellow" }}
+        isSelected={false}
+        onClick={() => {}}
+      />,
+    );
     expect(screen.getByTestId("color-tag-yellow")).toBeDefined();
   });
 
   test("shows red color tag badge", () => {
-    render(<FileRow file={{ ...baseFile, colorTag: "red" }} isSelected={false} onClick={() => {}} />);
+    render(
+      <FileRow
+        file={{ ...baseFile, colorTag: "red" }}
+        isSelected={false}
+        onClick={() => {}}
+      />,
+    );
     expect(screen.getByTestId("color-tag-red")).toBeDefined();
   });
 
   test("shows no badge when colorTag is null", () => {
-    render(<FileRow file={{ ...baseFile, colorTag: null }} isSelected={false} onClick={() => {}} />);
+    render(
+      <FileRow
+        file={{ ...baseFile, colorTag: null }}
+        isSelected={false}
+        onClick={() => {}}
+      />,
+    );
     expect(screen.queryByTestId(/color-tag/)).toBeNull();
   });
 
@@ -123,33 +150,58 @@ describe("FileRow", () => {
 describe("FileRow — right-click color tagging", () => {
   test("right-clicking the row shows the tag picker", async () => {
     render(<FileRow file={baseFile} isSelected={false} onClick={() => {}} />);
-    await userEvent.pointer({ target: screen.getByTestId("file-row"), keys: "[MouseRight]" });
+    await userEvent.pointer({
+      target: screen.getByTestId("file-row"),
+      keys: "[MouseRight]",
+    });
     expect(screen.getByTestId("tag-badge")).toBeDefined();
   });
 
   test("selecting a color calls rpcClient.send.dbSetColorTag and updates store", async () => {
+    useBrowserStore.setState({
+      ...useBrowserStore.getState(),
+      fileList: [baseFile],
+    });
     render(<FileRow file={baseFile} isSelected={false} onClick={() => {}} />);
-    await userEvent.pointer({ target: screen.getByTestId("file-row"), keys: "[MouseRight]" });
+    await userEvent.pointer({
+      target: screen.getByTestId("file-row"),
+      keys: "[MouseRight]",
+    });
     await userEvent.click(screen.getByTestId("tag-option-green"));
-    expect(mockDbSetColorTag).toHaveBeenCalledWith({ path: baseFile.path, color: "green" });
+    expect(mockDbSetColorTag).toHaveBeenCalledWith({
+      compositeId: baseFile.compositeId,
+      color: "green",
+    });
     expect(useBrowserStore.getState().fileList[0].colorTag).toBe("green");
   });
 
   test("selecting none clears the tag", async () => {
+    const fileWithTag = { ...baseFile, colorTag: "red" as const };
     useBrowserStore.setState({
       ...useBrowserStore.getState(),
-      fileList: [{ ...baseFile, colorTag: "red" }],
+      fileList: [fileWithTag],
     });
-    render(<FileRow file={{ ...baseFile, colorTag: "red" }} isSelected={false} onClick={() => {}} />);
-    await userEvent.pointer({ target: screen.getByTestId("file-row"), keys: "[MouseRight]" });
+    render(
+      <FileRow file={fileWithTag} isSelected={false} onClick={() => {}} />,
+    );
+    await userEvent.pointer({
+      target: screen.getByTestId("file-row"),
+      keys: "[MouseRight]",
+    });
     await userEvent.click(screen.getByTestId("tag-option-none"));
-    expect(mockDbSetColorTag).toHaveBeenCalledWith({ path: baseFile.path, color: null });
+    expect(mockDbSetColorTag).toHaveBeenCalledWith({
+      compositeId: baseFile.compositeId,
+      color: null,
+    });
     expect(useBrowserStore.getState().fileList[0].colorTag).toBeNull();
   });
 
   test("tag picker closes after a selection", async () => {
     render(<FileRow file={baseFile} isSelected={false} onClick={() => {}} />);
-    await userEvent.pointer({ target: screen.getByTestId("file-row"), keys: "[MouseRight]" });
+    await userEvent.pointer({
+      target: screen.getByTestId("file-row"),
+      keys: "[MouseRight]",
+    });
     await userEvent.click(screen.getByTestId("tag-option-yellow"));
     expect(screen.queryByTestId("tag-badge")).toBeNull();
   });

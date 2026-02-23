@@ -1,12 +1,13 @@
-import { describe, test, expect, beforeEach } from "vitest";
-import { useBrowserStore } from "./browserStore";
+import { beforeEach, describe, expect, test } from "vitest";
 import type { AudioFile } from "../../shared/types";
+import { useBrowserStore } from "./browserStore";
 
-const file = (name: string): AudioFile => ({
+const file = (name: string, compositeId?: string): AudioFile => ({
   path: `/samples/${name}`,
   name,
   extension: ".wav",
   size: 1000,
+  compositeId,
 });
 
 beforeEach(() => {
@@ -37,11 +38,9 @@ describe("browserStore — folder / file list", () => {
 
 describe("browserStore — selection", () => {
   beforeEach(() => {
-    useBrowserStore.getState().setFileList([
-      file("a.wav"),
-      file("b.wav"),
-      file("c.wav"),
-    ]);
+    useBrowserStore
+      .getState()
+      .setFileList([file("a.wav"), file("b.wav"), file("c.wav")]);
   });
 
   test("setSelectedIndex sets index", () => {
@@ -95,7 +94,7 @@ describe("browserStore — color tagging", () => {
   beforeEach(() => {
     useBrowserStore.setState({
       activeFolder: "/S",
-      fileList: [file("a.wav"), file("b.wav")],
+      fileList: [file("a.wav", "cid-a"), file("b.wav", "cid-b")],
       selectedIndex: 0,
       sortKey: "name",
       sortDir: "asc",
@@ -103,22 +102,25 @@ describe("browserStore — color tagging", () => {
     });
   });
 
-  test("setColorTag updates colorTag on the matching file", () => {
-    useBrowserStore.getState().setColorTag("/samples/a.wav", "green");
+  test("setColorTag updates colorTag on the matching file by compositeId", () => {
+    useBrowserStore.getState().setColorTag("cid-a", "green");
     expect(useBrowserStore.getState().fileList[0].colorTag).toBe("green");
   });
 
   test("setColorTag does not affect other files", () => {
-    useBrowserStore.getState().setColorTag("/samples/a.wav", "red");
+    useBrowserStore.getState().setColorTag("cid-a", "red");
     expect(useBrowserStore.getState().fileList[1].colorTag).toBeUndefined();
   });
 
   test("setColorTag can clear a tag to null", () => {
     useBrowserStore.setState({
       ...useBrowserStore.getState(),
-      fileList: [{ ...file("a.wav"), colorTag: "green" }, file("b.wav")],
+      fileList: [
+        { ...file("a.wav", "cid-a"), colorTag: "green" },
+        file("b.wav", "cid-b"),
+      ],
     });
-    useBrowserStore.getState().setColorTag("/samples/a.wav", null);
+    useBrowserStore.getState().setColorTag("cid-a", null);
     expect(useBrowserStore.getState().fileList[0].colorTag).toBeNull();
   });
 });

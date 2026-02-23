@@ -1,6 +1,6 @@
-import { describe, test, expect, beforeEach } from "bun:test";
 import { Database } from "bun:sqlite";
-import { initSchema, computeCompositeId, createQueryHelpers } from "./db";
+import { beforeEach, describe, expect, test } from "bun:test";
+import { computeCompositeId, createQueryHelpers, initSchema } from "./db";
 
 function makeDb() {
   const db = new Database(":memory:");
@@ -15,7 +15,9 @@ describe("initSchema", () => {
     const db = makeDb();
     const tables = (
       db
-        .query("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+        .query(
+          "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name",
+        )
         .all() as Array<{ name: string }>
     ).map((r) => r.name);
 
@@ -39,13 +41,39 @@ describe("initSchema", () => {
     const db = makeDb();
     expect(() => initSchema(db)).not.toThrow();
   });
+
+  test("creates files_fts virtual table for full-text search", () => {
+    const db = makeDb();
+    const tables = (
+      db
+        .query(
+          "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name",
+        )
+        .all() as Array<{ name: string }>
+    ).map((r) => r.name);
+    expect(tables).toContain("files_fts");
+  });
+
+  test("files_fts_after_insert trigger populates FTS index when a file is inserted", () => {
+    const db = makeDb();
+    db.exec(
+      `INSERT INTO files (path, composite_id, last_seen_at) VALUES ('/test/dark_loop.wav', 'cid-123', 0)`,
+    );
+    const rows = db
+      .query(`SELECT composite_id FROM files_fts WHERE files_fts MATCH 'dark'`)
+      .all() as Array<{ composite_id: string }>;
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows[0].composite_id).toBe("cid-123");
+  });
 });
 
 // ─── computeCompositeId ───────────────────────────────────────────────────────
 
 describe("computeCompositeId", () => {
   test("returns a 64-char hex string", () => {
-    expect(computeCompositeId("kick.wav", 1.5, 44100)).toMatch(/^[0-9a-f]{64}$/);
+    expect(computeCompositeId("kick.wav", 1.5, 44100)).toMatch(
+      /^[0-9a-f]{64}$/,
+    );
   });
 
   test("same inputs → same id", () => {
@@ -70,6 +98,43 @@ describe("computeCompositeId", () => {
     expect(computeCompositeId("kick.wav", 1.5, 44100)).not.toBe(
       computeCompositeId("kick.wav", 1.5, 48000),
     );
+  });
+});
+
+// ─── setColorTagByCompositeId ─────────────────────────────────────────────────
+
+describe("setColorTagByCompositeId", () => {
+  let q: ReturnType<typeof createQueryHelpers>;
+
+  beforeEach(() => {
+    const db = makeDb();
+    q = createQueryHelpers(db);
+    db.exec(
+      `INSERT INTO files (path, composite_id, last_seen_at) VALUES ('/test/kick.wav', 'cid-abc123', 0)`,
+    );
+  });
+
+  test("sets color tag by composite_id", () => {
+    q.setColorTagByCompositeId("cid-abc123", "green");
+    expect(q.getFileByPath("/test/kick.wav")?.color_tag).toBe("green");
+  });
+
+  test("overwrites previous tag", () => {
+    q.setColorTagByCompositeId("cid-abc123", "green");
+    q.setColorTagByCompositeId("cid-abc123", "red");
+    expect(q.getFileByPath("/test/kick.wav")?.color_tag).toBe("red");
+  });
+
+  test("accepts null to clear", () => {
+    q.setColorTagByCompositeId("cid-abc123", "yellow");
+    q.setColorTagByCompositeId("cid-abc123", null);
+    expect(q.getFileByPath("/test/kick.wav")?.color_tag).toBeNull();
+  });
+
+  test("no-ops when composite_id does not exist", () => {
+    expect(() =>
+      q.setColorTagByCompositeId("nonexistent", "green"),
+    ).not.toThrow();
   });
 });
 
@@ -198,9 +263,15 @@ describe("upsertFilesFromScan", () => {
   });
 
   test("preserves a real composite_id set by analysis — does not overwrite", () => {
-    q.upsertFile({ path: "/a/kick.wav", compositeId: "real-composite-id", duration: 1.5 });
+    q.upsertFile({
+      path: "/a/kick.wav",
+      compositeId: "real-composite-id",
+      duration: 1.5,
+    });
     q.upsertFilesFromScan([{ path: "/a/kick.wav", extension: ".wav" }]);
-    expect(q.getFileByPath("/a/kick.wav")?.composite_id).toBe("real-composite-id");
+    expect(q.getFileByPath("/a/kick.wav")?.composite_id).toBe(
+      "real-composite-id",
+    );
   });
 
   test("handles a batch of multiple files in one transaction", () => {

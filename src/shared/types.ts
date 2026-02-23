@@ -47,7 +47,10 @@ export type CrateRPC = {
       // Filesystem
       fsReaddir: { params: { path: string }; response: AudioFile[] };
       fsListDirs: { params: { path: string }; response: string[] };
-      fsOpenFolderDialog: { params: { directoryPath?: string }; response: string[] };
+      fsOpenFolderDialog: {
+        params: { directoryPath?: string };
+        response: string[];
+      };
       fsGetMetadata: {
         params: { path: string };
         response: AudioMetadata | null;
@@ -62,7 +65,7 @@ export type CrateRPC = {
       // Settings
       settingsSet: { key: string; value: string };
       // Database — writes
-      dbSetColorTag: { path: string; color: TagColor };
+      dbSetColorTag: { compositeId: string; color: TagColor };
       dbPinFolder: { path: string };
       dbUnpinFolder: { path: string };
       dbRecordPlay: { compositeId: string };

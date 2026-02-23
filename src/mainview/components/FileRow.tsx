@@ -28,8 +28,10 @@ export function FileRow({ file, isSelected, onClick, style }: FileRowProps) {
   }
 
   function handleSelectTag(color: TagColor) {
-    setColorTag(file.path, color);
-    rpcClient?.send.dbSetColorTag({ path: file.path, color });
+    if (file.compositeId) {
+      setColorTag(file.compositeId, color);
+      rpcClient?.send.dbSetColorTag({ compositeId: file.compositeId, color });
+    }
     setShowTagPicker(false);
   }
 

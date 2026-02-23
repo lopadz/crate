@@ -1,7 +1,12 @@
 import { BrowserView, Utils } from "electrobun/bun";
 import type { CrateRPC } from "../shared/types";
 import { queries } from "./db";
-import { listDirs, readdir, scanFolderRecursive, watchDirectory } from "./filesystem";
+import {
+  listDirs,
+  readdir,
+  scanFolderRecursive,
+  watchDirectory,
+} from "./filesystem";
 
 // Active directory watchers — keyed by path
 const watchers = new Map<string, () => void>();
@@ -30,7 +35,16 @@ export function createRpc(onDirectoryChanged: (path: string) => void) {
     maxRequestTime: Infinity,
     handlers: {
       requests: {
-        fsReaddir: ({ path }) => readdir(path),
+        fsReaddir: async ({ path }) => {
+          const files = await readdir(path);
+          const dbData = queries.getFilesDataBatch(files.map((f) => f.path));
+          return files.map((f) => {
+            const data = dbData.get(f.path);
+            return data
+              ? { ...f, compositeId: data.compositeId, colorTag: data.colorTag }
+              : f;
+          });
+        },
 
         fsListDirs: ({ path }) => listDirs(path),
 
@@ -72,16 +86,18 @@ export function createRpc(onDirectoryChanged: (path: string) => void) {
       messages: {
         settingsSet: ({ key, value }) => queries.setSetting(key, value),
 
-        dbSetColorTag: ({ path, color }) =>
-          queries.setColorTagByPath(path, color),
+        dbSetColorTag: ({ compositeId, color }) =>
+          queries.setColorTagByCompositeId(compositeId, color),
 
         dbPinFolder: ({ path }) => {
           queries.pinFolder(path);
           const controller = new AbortController();
           scanControllers.set(path, controller);
-          void runScan(path, controller.signal, onDirectoryChanged).finally(() => {
-            scanControllers.delete(path);
-          });
+          void runScan(path, controller.signal, onDirectoryChanged).finally(
+            () => {
+              scanControllers.delete(path);
+            },
+          );
         },
 
         dbUnpinFolder: ({ path }) => {

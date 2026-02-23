@@ -11,8 +11,10 @@ const DB_DIR = join(
 );
 export const DB_PATH = join(DB_DIR, "db.sqlite");
 
-const CREATE_TABLES_SQL = `
-  CREATE TABLE IF NOT EXISTS files (
+// Individual DDL statements — each run with db.run() to avoid the deprecated
+// db.exec(sql, ...bindings) overload. db.run() is the non-deprecated single-statement API.
+const DDL_STATEMENTS = [
+  `CREATE TABLE IF NOT EXISTS files (
     id               INTEGER PRIMARY KEY,
     path             TEXT NOT NULL UNIQUE,
     composite_id     TEXT NOT NULL,
@@ -20,8 +22,10 @@ const CREATE_TABLES_SQL = `
     content_hash     TEXT,
     bpm              REAL,
     key              TEXT,
+    key_camelot      TEXT,
     lufs_integrated  REAL,
     lufs_peak        REAL,
+    dynamic_range    REAL,
     duration         REAL,
     format           TEXT,
     sample_rate      INTEGER,
@@ -29,73 +33,77 @@ const CREATE_TABLES_SQL = `
     channels         INTEGER,
     last_seen_at     INTEGER,
     last_analyzed_at INTEGER
-  );
-
-  CREATE TABLE IF NOT EXISTS tags (
+  )`,
+  `CREATE TABLE IF NOT EXISTS tags (
     id         INTEGER PRIMARY KEY,
     name       TEXT NOT NULL UNIQUE,
     color      TEXT,
     sort_order INTEGER DEFAULT 0,
     created_at INTEGER
-  );
-
-  CREATE TABLE IF NOT EXISTS file_tags (
+  )`,
+  `CREATE TABLE IF NOT EXISTS file_tags (
     file_id    INTEGER REFERENCES files(id),
     tag_id     INTEGER REFERENCES tags(id),
     created_at INTEGER,
     PRIMARY KEY (file_id, tag_id)
-  );
-
-  CREATE TABLE IF NOT EXISTS collections (
+  )`,
+  `CREATE TABLE IF NOT EXISTS collections (
     id         INTEGER PRIMARY KEY,
     name       TEXT NOT NULL,
     color      TEXT,
     query_json TEXT,
     created_at INTEGER
-  );
-
-  CREATE TABLE IF NOT EXISTS collection_files (
+  )`,
+  `CREATE TABLE IF NOT EXISTS collection_files (
     collection_id INTEGER REFERENCES collections(id),
     composite_id  TEXT NOT NULL,
     added_at      INTEGER,
     PRIMARY KEY (collection_id, composite_id)
-  );
-
-  CREATE TABLE IF NOT EXISTS notes (
+  )`,
+  `CREATE TABLE IF NOT EXISTS notes (
     composite_id TEXT PRIMARY KEY,
     content      TEXT,
     updated_at   INTEGER
-  );
-
-  CREATE TABLE IF NOT EXISTS ratings (
+  )`,
+  `CREATE TABLE IF NOT EXISTS ratings (
     composite_id TEXT PRIMARY KEY,
     value        INTEGER CHECK(value BETWEEN 1 AND 5),
     updated_at   INTEGER
-  );
-
-  CREATE TABLE IF NOT EXISTS play_history (
+  )`,
+  `CREATE TABLE IF NOT EXISTS play_history (
     composite_id TEXT    NOT NULL,
     played_at    INTEGER NOT NULL
-  );
-
-  CREATE TABLE IF NOT EXISTS file_operations_log (
+  )`,
+  `CREATE TABLE IF NOT EXISTS file_operations_log (
     id             INTEGER PRIMARY KEY,
     operation      TEXT    NOT NULL,
     files_json     TEXT    NOT NULL,
     timestamp      INTEGER NOT NULL,
     rolled_back_at INTEGER
-  );
-
-  CREATE TABLE IF NOT EXISTS settings (
+  )`,
+  `CREATE TABLE IF NOT EXISTS settings (
     key   TEXT PRIMARY KEY,
     value TEXT
-  );
-`;
+  )`,
+  // FTS5 virtual table for full-text search across filenames, tags, and notes
+  `CREATE VIRTUAL TABLE IF NOT EXISTS files_fts USING fts5(
+    composite_id UNINDEXED,
+    filename,
+    tags_text,
+    notes_text
+  )`,
+  // Trigger to keep files_fts in sync when a file is inserted
+  `CREATE TRIGGER IF NOT EXISTS files_fts_after_insert AFTER INSERT ON files BEGIN
+    INSERT INTO files_fts(composite_id, filename) VALUES (new.composite_id, new.path);
+  END`,
+] as const;
 
 export function initSchema(db: Database): void {
   db.run("PRAGMA journal_mode = WAL");
   db.run("PRAGMA foreign_keys = ON");
-  db.exec(CREATE_TABLES_SQL);
+  for (const sql of DDL_STATEMENTS) {
+    db.run(sql);
+  }
 }
 
 export function computeCompositeId(
@@ -129,6 +137,10 @@ export function createQueryHelpers(db: Database) {
     `UPDATE files SET color_tag = ? WHERE id = ?`,
   );
 
+  const setColorTagByCompositeIdStmt = db.prepare(
+    `UPDATE files SET color_tag = ? WHERE composite_id = ?`,
+  );
+
   const setColorTagByPathStmt = db.prepare(
     `INSERT INTO files (path, composite_id, color_tag, last_seen_at)
      VALUES (?, '', ?, ?)
@@ -143,9 +155,7 @@ export function createQueryHelpers(db: Database) {
     `INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)`,
   );
 
-  const unpinFolderStmt = db.prepare(
-    `DELETE FROM settings WHERE key = ?`,
-  );
+  const unpinFolderStmt = db.prepare(`DELETE FROM settings WHERE key = ?`);
 
   const recordPlayStmt = db.prepare(
     `INSERT INTO play_history (composite_id, played_at) VALUES (?, ?)`,
@@ -170,9 +180,7 @@ export function createQueryHelpers(db: Database) {
     `SELECT id, composite_id, color_tag FROM files WHERE path = ?`,
   );
 
-  const getSettingStmt = db.prepare(
-    `SELECT value FROM settings WHERE key = ?`,
-  );
+  const getSettingStmt = db.prepare(`SELECT value FROM settings WHERE key = ?`);
 
   const setSettingStmt = db.prepare(
     `INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)`,
@@ -195,7 +203,9 @@ export function createQueryHelpers(db: Database) {
       const now = Date.now();
       for (const f of files) {
         // extension includes the leading dot (.wav) — strip it for the format column
-        const format = f.extension.startsWith(".") ? f.extension.slice(1) : f.extension;
+        const format = f.extension.startsWith(".")
+          ? f.extension.slice(1)
+          : f.extension;
         upsertFileScanStmt.run(f.path, pathHash(f.path), format, now);
       }
     },
@@ -221,8 +231,38 @@ export function createQueryHelpers(db: Database) {
       setColorTagStmt.run(color, fileId);
     },
 
+    setColorTagByCompositeId(compositeId: string, color: TagColor): void {
+      setColorTagByCompositeIdStmt.run(color, compositeId);
+    },
+
     setColorTagByPath(path: string, color: TagColor): void {
       setColorTagByPathStmt.run(path, color, Date.now());
+    },
+
+    getFilesDataBatch(
+      paths: string[],
+    ): Map<string, { compositeId: string; colorTag: TagColor }> {
+      const result = new Map<
+        string,
+        { compositeId: string; colorTag: TagColor }
+      >();
+      if (paths.length === 0) return result;
+      db.transaction(() => {
+        for (const path of paths) {
+          const row = getFileByPathStmt.get(path) as {
+            id: number;
+            composite_id: string;
+            color_tag: string | null;
+          } | null;
+          if (row) {
+            result.set(path, {
+              compositeId: row.composite_id,
+              colorTag: (row.color_tag as TagColor) ?? null,
+            });
+          }
+        }
+      })();
+      return result;
     },
 
     getPinnedFolders(): string[] {
@@ -288,7 +328,9 @@ export function createQueryHelpers(db: Database) {
       setSettingStmt.run(key, value);
     },
 
-    upsertFilesFromScan(files: Array<{ path: string; extension: string }>): void {
+    upsertFilesFromScan(
+      files: Array<{ path: string; extension: string }>,
+    ): void {
       upsertFilesFromScanTx(files);
     },
   };

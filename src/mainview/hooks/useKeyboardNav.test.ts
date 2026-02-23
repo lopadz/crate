@@ -1,18 +1,24 @@
-import { vi, describe, test, expect, beforeEach } from "vitest";
-import { renderHook, act } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import type { AudioFile } from "../../shared/types";
 
 // ── audioEngine mock ──────────────────────────────────────────────────────────
 
-const { mockPlay, mockStop, mockSeek, mockDbSetColorTag, mockMidiPlay, mockMidiStop } =
-  vi.hoisted(() => ({
-    mockPlay: vi.fn().mockResolvedValue(undefined),
-    mockStop: vi.fn(),
-    mockSeek: vi.fn(),
-    mockDbSetColorTag: vi.fn(),
-    mockMidiPlay: vi.fn().mockResolvedValue(undefined),
-    mockMidiStop: vi.fn(),
-  }));
+const {
+  mockPlay,
+  mockStop,
+  mockSeek,
+  mockDbSetColorTag,
+  mockMidiPlay,
+  mockMidiStop,
+} = vi.hoisted(() => ({
+  mockPlay: vi.fn().mockResolvedValue(undefined),
+  mockStop: vi.fn(),
+  mockSeek: vi.fn(),
+  mockDbSetColorTag: vi.fn(),
+  mockMidiPlay: vi.fn().mockResolvedValue(undefined),
+  mockMidiStop: vi.fn(),
+}));
 
 vi.mock("../services/audioEngine", () => ({
   audioEngine: { play: mockPlay, stop: mockStop, seek: mockSeek },
@@ -30,17 +36,35 @@ vi.mock("../rpc", () => ({
 
 // ── Imports (after mocks) ─────────────────────────────────────────────────────
 
-import { useKeyboardNav } from "./useKeyboardNav";
 import { useBrowserStore } from "../stores/browserStore";
 import { usePlaybackStore } from "../stores/playbackStore";
 import { useSettingsStore } from "../stores/settingsStore";
+import { useKeyboardNav } from "./useKeyboardNav";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const files: AudioFile[] = [
-  { path: "/S/a.wav", name: "a.wav", extension: ".wav", size: 100 },
-  { path: "/S/b.wav", name: "b.wav", extension: ".wav", size: 100 },
-  { path: "/S/c.wav", name: "c.wav", extension: ".wav", size: 100 },
+  {
+    path: "/S/a.wav",
+    name: "a.wav",
+    extension: ".wav",
+    size: 100,
+    compositeId: "cid-a",
+  },
+  {
+    path: "/S/b.wav",
+    name: "b.wav",
+    extension: ".wav",
+    size: 100,
+    compositeId: "cid-b",
+  },
+  {
+    path: "/S/c.wav",
+    name: "c.wav",
+    extension: ".wav",
+    size: 100,
+    compositeId: "cid-c",
+  },
 ];
 
 const press = (key: string) =>
@@ -107,7 +131,11 @@ describe("useKeyboardNav", () => {
   });
 
   test("Space while playing calls audioEngine.stop()", () => {
-    usePlaybackStore.setState({ ...usePlaybackStore.getState(), isPlaying: true, currentFile: files[1] });
+    usePlaybackStore.setState({
+      ...usePlaybackStore.getState(),
+      isPlaying: true,
+      currentFile: files[1],
+    });
     renderHook(() => useKeyboardNav());
     press(" ");
     expect(mockStop).toHaveBeenCalledOnce();
@@ -121,7 +149,10 @@ describe("useKeyboardNav", () => {
   });
 
   test("ArrowRight calls audioEngine.seek(0) and play", () => {
-    usePlaybackStore.setState({ ...usePlaybackStore.getState(), currentFile: files[1] });
+    usePlaybackStore.setState({
+      ...usePlaybackStore.getState(),
+      currentFile: files[1],
+    });
     renderHook(() => useKeyboardNav());
     press("ArrowRight");
     expect(mockSeek).toHaveBeenCalledWith(0);
@@ -129,7 +160,10 @@ describe("useKeyboardNav", () => {
   });
 
   test("navigation with autoplay on calls audioEngine.play() with new file", () => {
-    useSettingsStore.setState({ ...useSettingsStore.getState(), autoplay: true });
+    useSettingsStore.setState({
+      ...useSettingsStore.getState(),
+      autoplay: true,
+    });
     renderHook(() => useKeyboardNav());
     press("ArrowDown");
     expect(mockPlay).toHaveBeenCalledOnce();
@@ -154,7 +188,9 @@ describe("useKeyboardNav", () => {
     const input = document.createElement("input");
     document.body.appendChild(input);
     act(() => {
-      input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      input.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+      );
     });
     expect(mockStop).not.toHaveBeenCalled();
     document.body.removeChild(input);
@@ -165,21 +201,30 @@ describe("useKeyboardNav — color tag keys", () => {
   test("g sets green tag on selected file", () => {
     renderHook(() => useKeyboardNav());
     press("g");
-    expect(mockDbSetColorTag).toHaveBeenCalledWith({ path: files[1].path, color: "green" });
+    expect(mockDbSetColorTag).toHaveBeenCalledWith({
+      compositeId: files[1].compositeId,
+      color: "green",
+    });
     expect(useBrowserStore.getState().fileList[1].colorTag).toBe("green");
   });
 
   test("y sets yellow tag on selected file", () => {
     renderHook(() => useKeyboardNav());
     press("y");
-    expect(mockDbSetColorTag).toHaveBeenCalledWith({ path: files[1].path, color: "yellow" });
+    expect(mockDbSetColorTag).toHaveBeenCalledWith({
+      compositeId: files[1].compositeId,
+      color: "yellow",
+    });
     expect(useBrowserStore.getState().fileList[1].colorTag).toBe("yellow");
   });
 
   test("r sets red tag on selected file", () => {
     renderHook(() => useKeyboardNav());
     press("r");
-    expect(mockDbSetColorTag).toHaveBeenCalledWith({ path: files[1].path, color: "red" });
+    expect(mockDbSetColorTag).toHaveBeenCalledWith({
+      compositeId: files[1].compositeId,
+      color: "red",
+    });
     expect(useBrowserStore.getState().fileList[1].colorTag).toBe("red");
   });
 
@@ -190,12 +235,18 @@ describe("useKeyboardNav — color tag keys", () => {
     });
     renderHook(() => useKeyboardNav());
     press("x");
-    expect(mockDbSetColorTag).toHaveBeenCalledWith({ path: files[1].path, color: null });
+    expect(mockDbSetColorTag).toHaveBeenCalledWith({
+      compositeId: files[1].compositeId,
+      color: null,
+    });
     expect(useBrowserStore.getState().fileList[1].colorTag).toBeNull();
   });
 
   test("tag keys do nothing when no file is selected (index -1)", () => {
-    useBrowserStore.setState({ ...useBrowserStore.getState(), selectedIndex: -1 });
+    useBrowserStore.setState({
+      ...useBrowserStore.getState(),
+      selectedIndex: -1,
+    });
     renderHook(() => useKeyboardNav());
     press("g");
     expect(mockDbSetColorTag).not.toHaveBeenCalled();
@@ -250,7 +301,10 @@ describe("useKeyboardNav — MIDI routing", () => {
   });
 
   test("Space with .wav file selected still calls audioEngine.play()", () => {
-    useBrowserStore.setState({ ...useBrowserStore.getState(), selectedIndex: 0 });
+    useBrowserStore.setState({
+      ...useBrowserStore.getState(),
+      selectedIndex: 0,
+    });
     renderHook(() => useKeyboardNav());
     press(" ");
     expect(mockPlay).toHaveBeenCalledOnce();

@@ -20,7 +20,7 @@ interface BrowserState {
   setSortKey: (key: SortKey) => void;
   setSortDir: (dir: SortDir) => void;
   setFilter: (filter: string) => void;
-  setColorTag: (path: string, color: TagColor) => void;
+  setColorTag: (compositeId: string, color: TagColor) => void;
 }
 
 export const useBrowserStore = create<BrowserState>((set, get) => ({
@@ -55,10 +55,10 @@ export const useBrowserStore = create<BrowserState>((set, get) => ({
 
   setFilter: (filter) => set({ filter }),
 
-  setColorTag: (path, color) =>
+  setColorTag: (compositeId, color) =>
     set((state) => ({
       fileList: state.fileList.map((f) =>
-        f.path === path ? { ...f, colorTag: color } : f,
+        f.compositeId === compositeId ? { ...f, colorTag: color } : f,
       ),
     })),
 }));
