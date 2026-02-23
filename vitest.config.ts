@@ -6,5 +6,6 @@ export default defineConfig({
   test: {
     environment: "happy-dom",
     include: ["src/mainview/**/*.test.{ts,tsx}"],
+    setupFiles: ["src/mainview/setupTests.ts"],
   },
 });
