@@ -7,6 +7,10 @@ vi.mock("./rpc", () => ({
     send: { fsStartWatch: vi.fn(), fsStopWatch: vi.fn() },
   },
 }));
+vi.mock("wavesurfer.js", () => ({
+  default: { create: vi.fn().mockReturnValue({ on: vi.fn(), load: vi.fn(), destroy: vi.fn(), getDuration: vi.fn() }) },
+}));
+vi.mock("./services/audioEngine", () => ({ audioEngine: { seek: vi.fn() } }));
 
 import App from "./App";
 

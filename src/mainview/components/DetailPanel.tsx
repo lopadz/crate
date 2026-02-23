@@ -1,3 +1,5 @@
+import { Waveform } from "./Waveform";
+
 export function DetailPanel() {
   return (
     <div
@@ -7,7 +9,8 @@ export function DetailPanel() {
       <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-gray-600">
         Detail
       </div>
-      {/* Waveform + tag editor mount here in Commits 10/12 */}
+      <Waveform />
+      {/* Tag editor mounts here in Commit 12 */}
     </div>
   );
 }
