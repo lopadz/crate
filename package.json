@@ -1,0 +1,30 @@
+{
+  "name": "crate",
+  "version": "1.0.0",
+  "description": "Electrobun app with React, Tailwind CSS, and Vite HMR",
+  "scripts": {
+    "dev": "bun run build && electrobun dev",
+    "dev:hmr": "concurrently \"bun run hmr\" \"bun run dev\"",
+    "hmr": "vite --port 5173",
+    "build": "vite build && electrobun build",
+    "build:prod": "vite build && electrobun build --channel prod",
+    "start": "bun run dev"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "^4.2.0",
+    "electrobun": "1.13.1",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.4",
+    "autoprefixer": "^10.4.24",
+    "concurrently": "^9.2.1",
+    "tailwindcss": "^4.2.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1"
+  }
+}
