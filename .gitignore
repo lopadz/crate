@@ -42,6 +42,7 @@ desktop.ini
 *.swp
 *.swo
 *~
+*.code-workspace
 
 # Temp
 tmp/
