@@ -1,0 +1,49 @@
+# Dependencies
+node_modules/
+bun.lockb
+
+# Electrobun build output
+build/
+dist/
+out/
+.build/
+
+# Electrobun app bundles
+*.app/
+*.dmg
+*.exe
+*.AppImage
+*.deb
+*.rpm
+*.snap
+
+# Bun
+.bun/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+bun-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editors
+.vscode/settings.json
+.vscode/launch.json
+.idea/
+*.swp
+*.swo
+*~
+
+# Temp
+tmp/
+temp/
+.cache/
