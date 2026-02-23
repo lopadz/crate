@@ -13,6 +13,9 @@ import { rpcClient } from "../rpc";
 import { FolderTree } from "./FolderTree";
 import { useBrowserStore } from "../stores/browserStore";
 
+// vi.mock always provides a concrete object — safe to assert non-null
+const rc = rpcClient as NonNullable<typeof rpcClient>;
+
 beforeEach(() => {
   vi.clearAllMocks();
   useBrowserStore.setState({
@@ -23,8 +26,8 @@ beforeEach(() => {
     sortDir: "asc",
     filter: "",
   });
-  (rpcClient.request.dbGetPinnedFolders as ReturnType<typeof vi.fn>).mockResolvedValue([]);
-  (rpcClient.request.fsListDirs as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+  (rc.request.dbGetPinnedFolders as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+  (rc.request.fsListDirs as ReturnType<typeof vi.fn>).mockResolvedValue([]);
 });
 
 describe("FolderTree", () => {
@@ -34,7 +37,7 @@ describe("FolderTree", () => {
   });
 
   test("shows pinned folder names", async () => {
-    (rpcClient.request.dbGetPinnedFolders as ReturnType<typeof vi.fn>).mockResolvedValue([
+    (rc.request.dbGetPinnedFolders as ReturnType<typeof vi.fn>).mockResolvedValue([
       "/Users/me/Samples",
     ]);
     render(<FolderTree />);
@@ -42,7 +45,7 @@ describe("FolderTree", () => {
   });
 
   test("clicking a folder name sets activeFolder", async () => {
-    (rpcClient.request.dbGetPinnedFolders as ReturnType<typeof vi.fn>).mockResolvedValue([
+    (rc.request.dbGetPinnedFolders as ReturnType<typeof vi.fn>).mockResolvedValue([
       "/Users/me/Samples",
     ]);
     render(<FolderTree />);
@@ -52,15 +55,71 @@ describe("FolderTree", () => {
   });
 
   test("expand button loads and shows child directories", async () => {
-    (rpcClient.request.dbGetPinnedFolders as ReturnType<typeof vi.fn>).mockResolvedValue([
+    (rc.request.dbGetPinnedFolders as ReturnType<typeof vi.fn>).mockResolvedValue([
       "/Users/me/Samples",
     ]);
-    (rpcClient.request.fsListDirs as ReturnType<typeof vi.fn>).mockResolvedValue([
+    (rc.request.fsListDirs as ReturnType<typeof vi.fn>).mockResolvedValue([
       "/Users/me/Samples/Drums",
     ]);
     render(<FolderTree />);
     await waitFor(() => screen.getByText("Samples"));
     await userEvent.click(screen.getByRole("button", { name: /expand/i }));
     await waitFor(() => expect(screen.getByText("Drums")).toBeDefined());
+  });
+});
+
+describe("FolderTree — pin/unpin", () => {
+  test("renders an add-folder button", () => {
+    render(<FolderTree />);
+    expect(screen.getByTestId("add-folder-btn")).toBeDefined();
+  });
+
+  test("clicking add-folder shows the FolderPicker", async () => {
+    render(<FolderTree />);
+    await userEvent.click(screen.getByTestId("add-folder-btn"));
+    expect(screen.getByTestId("folder-picker")).toBeDefined();
+  });
+
+  test("pinning from FolderPicker calls dbPinFolder, shows the folder, and closes picker", async () => {
+    (rc.request.fsListDirs as ReturnType<typeof vi.fn>).mockResolvedValue([
+      "/Users/me/Kicks",
+    ]);
+    render(<FolderTree />);
+    await userEvent.click(screen.getByTestId("add-folder-btn"));
+    await waitFor(() => screen.getByText("Kicks"));
+    await userEvent.click(screen.getByText("Kicks"));
+    await userEvent.click(screen.getByTestId("folder-picker-pin"));
+    expect(rc.send.dbPinFolder).toHaveBeenCalledWith({ path: "/Users/me/Kicks" });
+    await waitFor(() => expect(screen.queryByTestId("folder-picker")).toBeNull());
+    expect(screen.getByText("Kicks")).toBeDefined();
+  });
+
+  test("cancelling FolderPicker closes it without pinning", async () => {
+    render(<FolderTree />);
+    await userEvent.click(screen.getByTestId("add-folder-btn"));
+    expect(screen.getByTestId("folder-picker")).toBeDefined();
+    await userEvent.click(screen.getByTestId("folder-picker-cancel"));
+    expect(rc.send.dbPinFolder).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("folder-picker")).toBeNull();
+  });
+
+  test("each pinned folder has an unpin button", async () => {
+    (rc.request.dbGetPinnedFolders as ReturnType<typeof vi.fn>).mockResolvedValue([
+      "/Users/me/Samples",
+    ]);
+    render(<FolderTree />);
+    await waitFor(() => screen.getByText("Samples"));
+    expect(screen.getByRole("button", { name: /unpin/i })).toBeDefined();
+  });
+
+  test("clicking unpin calls dbUnpinFolder and removes the folder", async () => {
+    (rc.request.dbGetPinnedFolders as ReturnType<typeof vi.fn>).mockResolvedValue([
+      "/Users/me/Samples",
+    ]);
+    render(<FolderTree />);
+    await waitFor(() => screen.getByText("Samples"));
+    await userEvent.click(screen.getByRole("button", { name: /unpin/i }));
+    expect(rc.send.dbUnpinFolder).toHaveBeenCalledWith({ path: "/Users/me/Samples" });
+    expect(screen.queryByText("Samples")).toBeNull();
   });
 });

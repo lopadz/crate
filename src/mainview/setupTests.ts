@@ -1,5 +1,6 @@
 import { cleanup } from "@testing-library/react";
 import { afterEach } from "vitest";
+import "@testing-library/jest-dom/vitest";
 
 // Clean up DOM after each test so renders don't accumulate across tests
 afterEach(cleanup);

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { rpcClient } from "../rpc";
 import { useBrowserStore } from "../stores/browserStore";
 import { basename } from "../utils/path";
+import { FolderPicker } from "./FolderPicker";
 
 interface FolderNode {
   path: string;
@@ -10,9 +11,8 @@ interface FolderNode {
 
 export function FolderTree() {
   const [pinnedFolders, setPinnedFolders] = useState<FolderNode[]>([]);
-  const setActiveFolder = useBrowserStore((s) => {
-    return s.setActiveFolder;
-  });
+  const [showPicker, setShowPicker] = useState(false);
+  const setActiveFolder = useBrowserStore((s) => s.setActiveFolder);
 
   useEffect(() => {
     rpcClient?.request.dbGetPinnedFolders({}).then((paths) => {
@@ -28,37 +28,66 @@ export function FolderTree() {
     });
   }
 
+  function handlePin(path: string) {
+    rpcClient?.send.dbPinFolder({ path });
+    setPinnedFolders((prev) => [...prev, { path, children: null }]);
+    setShowPicker(false);
+  }
+
+  function handleUnpin(path: string) {
+    rpcClient?.send.dbUnpinFolder({ path });
+    setPinnedFolders((prev) => prev.filter((n) => n.path !== path));
+  }
+
   return (
-    <div data-testid="folder-tree" className="flex-1 overflow-y-auto">
-      {pinnedFolders.map((node) => (
-        <div key={node.path}>
-          <div className="flex items-center gap-1 px-2 py-1 hover:bg-[#222] cursor-pointer">
-            <button
-              aria-label="expand"
-              className="text-gray-500 w-4 shrink-0"
-              onClick={() => handleExpand(node.path)}
-            >
-              ▶
-            </button>
-            <span
-              onClick={() => setActiveFolder(node.path)}
-              className="truncate"
-            >
-              {basename(node.path)}
-            </span>
-          </div>
-          {node.children &&
-            node.children.map((child) => (
-              <div
-                key={child}
-                className="pl-6 px-2 py-1 hover:bg-[#222] cursor-pointer"
-                onClick={() => setActiveFolder(child)}
-              >
-                {basename(child)}
+    <div data-testid="folder-tree" className="flex flex-col h-full">
+      {showPicker ? (
+        <FolderPicker initialPath="/" onPin={handlePin} onClose={() => setShowPicker(false)} />
+      ) : (
+        <div className="flex-1 overflow-y-auto">
+          {pinnedFolders.map((node) => (
+            <div key={node.path}>
+              <div className="group flex items-center gap-1 px-2 py-1 hover:bg-[#222] cursor-pointer">
+                <button
+                  aria-label="expand"
+                  className="text-gray-500 w-4 shrink-0"
+                  onClick={() => handleExpand(node.path)}
+                >
+                  ▶
+                </button>
+                <span className="flex-1 truncate" onClick={() => setActiveFolder(node.path)}>
+                  {basename(node.path)}
+                </span>
+                <button
+                  aria-label="unpin"
+                  className="hidden group-hover:block text-gray-600 hover:text-red-400 w-4 shrink-0 text-xs"
+                  onClick={() => handleUnpin(node.path)}
+                >
+                  ×
+                </button>
               </div>
-            ))}
+              {node.children &&
+                node.children.map((child) => (
+                  <div
+                    key={child}
+                    className="pl-6 px-2 py-1 hover:bg-[#222] cursor-pointer"
+                    onClick={() => setActiveFolder(child)}
+                  >
+                    {basename(child)}
+                  </div>
+                ))}
+            </div>
+          ))}
+
+          <button
+            data-testid="add-folder-btn"
+            className="w-full px-3 py-1.5 text-left text-xs text-gray-600 hover:text-gray-400 hover:bg-[#222]"
+            onClick={() => setShowPicker(true)}
+          >
+            + Add folder
+          </button>
         </div>
-      ))}
+      )}
     </div>
   );
 }
