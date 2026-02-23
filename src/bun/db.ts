@@ -155,6 +155,14 @@ export function createQueryHelpers(db: Database) {
     `SELECT id, composite_id, color_tag FROM files WHERE path = ?`,
   );
 
+  const getSettingStmt = db.prepare(
+    `SELECT value FROM settings WHERE key = ?`,
+  );
+
+  const setSettingStmt = db.prepare(
+    `INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)`,
+  );
+
   return {
     getFileTags(fileId: number): Tag[] {
       const rows = getFileTagsStmt.all(fileId) as Array<{
@@ -227,6 +235,15 @@ export function createQueryHelpers(db: Database) {
           color_tag: string | null;
         } | null) ?? null
       );
+    },
+
+    getSetting(key: string): string | null {
+      const row = getSettingStmt.get(key) as { value: string } | null;
+      return row?.value ?? null;
+    },
+
+    setSetting(key: string, value: string): void {
+      setSettingStmt.run(key, value);
     },
   };
 }

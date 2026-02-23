@@ -1,6 +1,4 @@
-// Shared RPC type definitions for Electrobun IPC.
-// Filled out in Commit 4 once db.ts and filesystem.ts are ready.
-// Both src/bun/rpc.ts and src/mainview/rpc.ts import from here.
+import type { RPCSchema } from "electrobun/bun";
 
 export type TagColor = "green" | "yellow" | "red" | null;
 
@@ -38,8 +36,41 @@ export interface Tag {
   sortOrder: number;
 }
 
-// RPC schema placeholder — expanded in Commit 4
+// ─── Electrobun typed RPC schema ─────────────────────────────────────────────
+//
+// Bun side  → handles requests/messages FROM the renderer
+// Webview side → handles messages FROM the main process (e.g. directory change)
+
 export type CrateRPC = {
-  bun: Record<string, never>;
-  webview: Record<string, never>;
+  bun: RPCSchema<{
+    requests: {
+      // Filesystem
+      fsReaddir: { params: { path: string }; response: AudioFile[] };
+      fsGetMetadata: { params: { path: string }; response: AudioMetadata | null };
+      // Settings
+      settingsGet: { params: { key: string }; response: string | null };
+      // Database — reads
+      dbGetFileTags: { params: { fileId: number }; response: Tag[] };
+      dbGetPinnedFolders: { params: Record<string, never>; response: string[] };
+    };
+    messages: {
+      // Settings
+      settingsSet: { key: string; value: string };
+      // Database — writes
+      dbSetColorTag: { fileId: number; color: TagColor };
+      dbPinFolder: { path: string };
+      dbUnpinFolder: { path: string };
+      dbRecordPlay: { compositeId: string };
+      // Filesystem watch
+      fsStartWatch: { path: string };
+      fsStopWatch: { path: string };
+    };
+  }>;
+  webview: RPCSchema<{
+    requests: Record<string, never>;
+    messages: {
+      // Main notifies renderer when a watched directory changes
+      fsDirectoryChanged: { path: string };
+    };
+  }>;
 };
