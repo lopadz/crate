@@ -3,6 +3,10 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { AudioFile } from "../../shared/types";
 
+vi.mock("../rpc", () => ({
+  rpcClient: { send: { dbSetColorTag: vi.fn() } },
+}));
+
 // Mock @tanstack/virtual-core so the virtualizer renders all items
 // without needing real DOM layout measurement
 vi.mock("@tanstack/virtual-core", () => {

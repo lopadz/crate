@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { AudioFile } from "../../shared/types";
+import type { AudioFile, TagColor } from "../../shared/types";
 
 type SortKey = "name" | "size" | "duration";
 type SortDir = "asc" | "desc";
@@ -20,6 +20,7 @@ interface BrowserState {
   setSortKey: (key: SortKey) => void;
   setSortDir: (dir: SortDir) => void;
   setFilter: (filter: string) => void;
+  setColorTag: (path: string, color: TagColor) => void;
 }
 
 export const useBrowserStore = create<BrowserState>((set, get) => ({
@@ -53,4 +54,11 @@ export const useBrowserStore = create<BrowserState>((set, get) => ({
   setSortDir: (dir) => set({ sortDir: dir }),
 
   setFilter: (filter) => set({ filter }),
+
+  setColorTag: (path, color) =>
+    set((state) => ({
+      fileList: state.fileList.map((f) =>
+        f.path === path ? { ...f, colorTag: color } : f,
+      ),
+    })),
 }));

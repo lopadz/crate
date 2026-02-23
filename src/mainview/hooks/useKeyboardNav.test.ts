@@ -4,14 +4,21 @@ import type { AudioFile } from "../../shared/types";
 
 // ── audioEngine mock ──────────────────────────────────────────────────────────
 
-const { mockPlay, mockStop, mockSeek } = vi.hoisted(() => ({
+const { mockPlay, mockStop, mockSeek, mockDbSetColorTag } = vi.hoisted(() => ({
   mockPlay: vi.fn().mockResolvedValue(undefined),
   mockStop: vi.fn(),
   mockSeek: vi.fn(),
+  mockDbSetColorTag: vi.fn(),
 }));
 
 vi.mock("../services/audioEngine", () => ({
   audioEngine: { play: mockPlay, stop: mockStop, seek: mockSeek },
+}));
+
+vi.mock("../rpc", () => ({
+  rpcClient: {
+    send: { dbSetColorTag: mockDbSetColorTag },
+  },
 }));
 
 // ── Imports (after mocks) ─────────────────────────────────────────────────────
@@ -144,5 +151,46 @@ describe("useKeyboardNav", () => {
     });
     expect(mockStop).not.toHaveBeenCalled();
     document.body.removeChild(input);
+  });
+});
+
+describe("useKeyboardNav — color tag keys", () => {
+  test("g sets green tag on selected file", () => {
+    renderHook(() => useKeyboardNav());
+    press("g");
+    expect(mockDbSetColorTag).toHaveBeenCalledWith({ path: files[1].path, color: "green" });
+    expect(useBrowserStore.getState().fileList[1].colorTag).toBe("green");
+  });
+
+  test("y sets yellow tag on selected file", () => {
+    renderHook(() => useKeyboardNav());
+    press("y");
+    expect(mockDbSetColorTag).toHaveBeenCalledWith({ path: files[1].path, color: "yellow" });
+    expect(useBrowserStore.getState().fileList[1].colorTag).toBe("yellow");
+  });
+
+  test("r sets red tag on selected file", () => {
+    renderHook(() => useKeyboardNav());
+    press("r");
+    expect(mockDbSetColorTag).toHaveBeenCalledWith({ path: files[1].path, color: "red" });
+    expect(useBrowserStore.getState().fileList[1].colorTag).toBe("red");
+  });
+
+  test("x clears tag on selected file", () => {
+    useBrowserStore.setState({
+      ...useBrowserStore.getState(),
+      fileList: [files[0], { ...files[1], colorTag: "green" }, files[2]],
+    });
+    renderHook(() => useKeyboardNav());
+    press("x");
+    expect(mockDbSetColorTag).toHaveBeenCalledWith({ path: files[1].path, color: null });
+    expect(useBrowserStore.getState().fileList[1].colorTag).toBeNull();
+  });
+
+  test("tag keys do nothing when no file is selected (index -1)", () => {
+    useBrowserStore.setState({ ...useBrowserStore.getState(), selectedIndex: -1 });
+    renderHook(() => useKeyboardNav());
+    press("g");
+    expect(mockDbSetColorTag).not.toHaveBeenCalled();
   });
 });

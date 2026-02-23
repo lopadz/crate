@@ -90,3 +90,35 @@ describe("browserStore — sort & filter", () => {
     expect(useBrowserStore.getState().filter).toBe("kick");
   });
 });
+
+describe("browserStore — color tagging", () => {
+  beforeEach(() => {
+    useBrowserStore.setState({
+      activeFolder: "/S",
+      fileList: [file("a.wav"), file("b.wav")],
+      selectedIndex: 0,
+      sortKey: "name",
+      sortDir: "asc",
+      filter: "",
+    });
+  });
+
+  test("setColorTag updates colorTag on the matching file", () => {
+    useBrowserStore.getState().setColorTag("/samples/a.wav", "green");
+    expect(useBrowserStore.getState().fileList[0].colorTag).toBe("green");
+  });
+
+  test("setColorTag does not affect other files", () => {
+    useBrowserStore.getState().setColorTag("/samples/a.wav", "red");
+    expect(useBrowserStore.getState().fileList[1].colorTag).toBeUndefined();
+  });
+
+  test("setColorTag can clear a tag to null", () => {
+    useBrowserStore.setState({
+      ...useBrowserStore.getState(),
+      fileList: [{ ...file("a.wav"), colorTag: "green" }, file("b.wav")],
+    });
+    useBrowserStore.getState().setColorTag("/samples/a.wav", null);
+    expect(useBrowserStore.getState().fileList[0].colorTag).toBeNull();
+  });
+});

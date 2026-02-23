@@ -1,9 +1,10 @@
 import { useEffect } from "react";
-import type { AudioFile } from "../../shared/types";
+import type { AudioFile, TagColor } from "../../shared/types";
 import { useBrowserStore } from "../stores/browserStore";
 import { usePlaybackStore } from "../stores/playbackStore";
 import { useSettingsStore } from "../stores/settingsStore";
 import { audioEngine } from "../services/audioEngine";
+import { rpcClient } from "../rpc";
 
 function getNeighbors(fileList: AudioFile[], index: number): AudioFile[] {
   return [fileList[index - 1], fileList[index + 1]].filter(Boolean);
@@ -67,6 +68,23 @@ export function useKeyboardNav(): void {
             audioEngine.seek(0);
             audioEngine.play(file, getNeighbors(fileList, selectedIndex));
           }
+          break;
+        }
+
+        case "g":
+        case "y":
+        case "r":
+        case "x": {
+          if (selectedIndex < 0) break;
+          const tagFile = fileList[selectedIndex];
+          if (!tagFile) break;
+          const color: TagColor =
+            e.key === "g" ? "green"
+            : e.key === "y" ? "yellow"
+            : e.key === "r" ? "red"
+            : null;
+          useBrowserStore.getState().setColorTag(tagFile.path, color);
+          rpcClient?.send.dbSetColorTag({ path: tagFile.path, color });
           break;
         }
       }

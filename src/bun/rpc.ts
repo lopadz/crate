@@ -44,7 +44,7 @@ export function createRpc(onDirectoryChanged: (path: string) => void) {
       messages: {
         settingsSet: ({ key, value }) => queries.setSetting(key, value),
 
-        dbSetColorTag: ({ fileId, color }) => queries.setColorTag(fileId, color),
+        dbSetColorTag: ({ path, color }) => queries.setColorTagByPath(path, color),
 
         dbPinFolder: ({ path }) => queries.pinFolder(path),
 

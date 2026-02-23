@@ -120,6 +120,12 @@ export function createQueryHelpers(db: Database) {
     `UPDATE files SET color_tag = ? WHERE id = ?`,
   );
 
+  const setColorTagByPathStmt = db.prepare(
+    `INSERT INTO files (path, composite_id, color_tag, last_seen_at)
+     VALUES (?, '', ?, ?)
+     ON CONFLICT(path) DO UPDATE SET color_tag = excluded.color_tag`,
+  );
+
   const getPinnedFoldersStmt = db.prepare(
     `SELECT value FROM settings WHERE key LIKE 'pinned_folder:%'`,
   );
@@ -181,6 +187,10 @@ export function createQueryHelpers(db: Database) {
 
     setColorTag(fileId: number, color: TagColor): void {
       setColorTagStmt.run(color, fileId);
+    },
+
+    setColorTagByPath(path: string, color: TagColor): void {
+      setColorTagByPathStmt.run(path, color, Date.now());
     },
 
     getPinnedFolders(): string[] {

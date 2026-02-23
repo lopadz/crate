@@ -58,7 +58,7 @@ export type CrateRPC = {
       // Settings
       settingsSet: { key: string; value: string };
       // Database — writes
-      dbSetColorTag: { fileId: number; color: TagColor };
+      dbSetColorTag: { path: string; color: TagColor };
       dbPinFolder: { path: string };
       dbUnpinFolder: { path: string };
       dbRecordPlay: { compositeId: string };
