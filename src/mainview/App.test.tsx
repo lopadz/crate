@@ -1,5 +1,13 @@
-import { describe, test, expect } from "vitest";
+import { vi, describe, test, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
+
+vi.mock("./rpc", () => ({
+  rpcClient: {
+    request: { fsReaddir: vi.fn().mockResolvedValue([]), dbGetPinnedFolders: vi.fn().mockResolvedValue([]) },
+    send: { fsStartWatch: vi.fn(), fsStopWatch: vi.fn() },
+  },
+}));
+
 import App from "./App";
 
 describe("App", () => {

@@ -2,7 +2,7 @@ import { describe, test, expect } from "bun:test";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { isAudioFile, readdir, watchDirectory, AUDIO_EXTENSIONS } from "./filesystem";
+import { isAudioFile, readdir, listDirs, watchDirectory, AUDIO_EXTENSIONS } from "./filesystem";
 
 function makeTempDir(files: string[]) {
   const dir = mkdtempSync(join(tmpdir(), "crate-test-"));
@@ -116,6 +116,47 @@ describe("readdir", () => {
 });
 
 // ─── watchDirectory ───────────────────────────────────────────────────────────
+
+// ─── listDirs ────────────────────────────────────────────────────────────────
+
+describe("listDirs", () => {
+  test("returns only subdirectory paths", async () => {
+    const { dir, cleanup } = makeTempDir(["audio.wav", "note.txt"]);
+    try {
+      const { mkdirSync } = await import("node:fs");
+      mkdirSync(join(dir, "SubA"));
+      mkdirSync(join(dir, "SubB"));
+      const dirs = await listDirs(dir);
+      expect(dirs).toHaveLength(2);
+      expect(dirs.some((p: string) => p.endsWith("SubA"))).toBe(true);
+      expect(dirs.some((p: string) => p.endsWith("SubB"))).toBe(true);
+    } finally {
+      cleanup();
+    }
+  });
+
+  test("returns empty array when no subdirectories", async () => {
+    const { dir, cleanup } = makeTempDir(["audio.wav"]);
+    try {
+      expect(await listDirs(dir)).toHaveLength(0);
+    } finally {
+      cleanup();
+    }
+  });
+
+  test("returns full absolute paths", async () => {
+    const { dir, cleanup } = makeTempDir([]);
+    try {
+      const { mkdirSync } = await import("node:fs");
+      mkdirSync(join(dir, "MySamples"));
+      const [p] = await listDirs(dir);
+      expect(p.startsWith("/")).toBe(true);
+      expect(p.endsWith("MySamples")).toBe(true);
+    } finally {
+      cleanup();
+    }
+  });
+});
 
 describe("watchDirectory", () => {
   test("returns an unsubscribe function", () => {

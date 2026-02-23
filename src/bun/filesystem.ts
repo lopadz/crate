@@ -41,6 +41,13 @@ export async function readdir(dirPath: string): Promise<AudioFile[]> {
   return results;
 }
 
+export async function listDirs(dirPath: string): Promise<string[]> {
+  const entries = await fsReaddir(dirPath, { withFileTypes: true });
+  return entries
+    .filter((e) => e.isDirectory())
+    .map((e) => join(dirPath, e.name));
+}
+
 // Returns an unsubscribe function that stops the watcher.
 export function watchDirectory(
   dirPath: string,

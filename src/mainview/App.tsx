@@ -2,8 +2,11 @@ import { Group, Panel, Separator } from "react-resizable-panels";
 import { DetailPanel } from "./components/DetailPanel";
 import { PlaybackBar } from "./components/PlaybackBar";
 import { Sidebar } from "./components/Sidebar";
+import { useFileList } from "./hooks/useFileList";
 
 function App() {
+  useFileList();
+
   return (
     <div className="flex flex-col h-screen bg-[#1a1a1a] text-gray-100 overflow-hidden">
       <Group

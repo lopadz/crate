@@ -1,7 +1,7 @@
 import { BrowserView } from "electrobun/bun";
 import type { CrateRPC } from "../shared/types";
 import { queries } from "./db";
-import { readdir, watchDirectory } from "./filesystem";
+import { readdir, listDirs, watchDirectory } from "./filesystem";
 
 // Active directory watchers — keyed by path
 const watchers = new Map<string, () => void>();
@@ -14,6 +14,8 @@ export function createRpc(onDirectoryChanged: (path: string) => void) {
     handlers: {
       requests: {
         fsReaddir: ({ path }) => readdir(path),
+
+        fsListDirs: ({ path }) => listDirs(path),
 
         fsGetMetadata: ({ path }) => {
           const file = queries.getFileByPath(path);
