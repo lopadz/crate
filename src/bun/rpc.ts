@@ -1,4 +1,4 @@
-import { BrowserView } from "electrobun/bun";
+import { BrowserView, Utils } from "electrobun/bun";
 import type { CrateRPC } from "../shared/types";
 import { queries } from "./db";
 import { listDirs, readdir, watchDirectory } from "./filesystem";
@@ -17,7 +17,7 @@ export function createRpc(onDirectoryChanged: (path: string) => void) {
 
         fsListDirs: ({ path }) => listDirs(path),
 
-        fsGetHomeDir: () => process.env.HOME ?? "/",
+        fsGetHomeDir: () => Utils.paths.home,
 
         fsGetMetadata: ({ path }) => {
           const file = queries.getFileByPath(path);
