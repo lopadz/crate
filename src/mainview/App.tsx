@@ -4,9 +4,11 @@ import { FileList } from "./components/FileList";
 import { PlaybackBar } from "./components/PlaybackBar";
 import { Sidebar } from "./components/Sidebar";
 import { useFileList } from "./hooks/useFileList";
+import { useKeyboardNav } from "./hooks/useKeyboardNav";
 
 function App() {
   useFileList();
+  useKeyboardNav();
 
   return (
     <div className="flex flex-col h-screen bg-[#1a1a1a] text-gray-100 overflow-hidden">
