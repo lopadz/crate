@@ -132,6 +132,28 @@ describe("FolderTree — pin/unpin", () => {
     expect(screen.queryByText("Samples")).toBeNull();
   });
 
+  test("unpinning the active folder clears activeFolder", async () => {
+    useBrowserStore.setState({ activeFolder: "/Users/me/Samples" });
+    (rc.request.dbGetPinnedFolders as ReturnType<typeof vi.fn>).mockResolvedValue([
+      "/Users/me/Samples",
+    ]);
+    render(<FolderTree />);
+    await waitFor(() => screen.getByText("Samples"));
+    await userEvent.click(screen.getByRole("button", { name: /unpin/i }));
+    expect(useBrowserStore.getState().activeFolder).toBeNull();
+  });
+
+  test("unpinning a non-active folder does not clear activeFolder", async () => {
+    useBrowserStore.setState({ activeFolder: "/Users/me/Other" });
+    (rc.request.dbGetPinnedFolders as ReturnType<typeof vi.fn>).mockResolvedValue([
+      "/Users/me/Samples",
+    ]);
+    render(<FolderTree />);
+    await waitFor(() => screen.getByText("Samples"));
+    await userEvent.click(screen.getByRole("button", { name: /unpin/i }));
+    expect(useBrowserStore.getState().activeFolder).toBe("/Users/me/Other");
+  });
+
   test("selecting a folder via dialog sets it as activeFolder immediately", async () => {
     (rc.request.fsOpenFolderDialog as ReturnType<typeof vi.fn>).mockResolvedValue([
       "/Users/me/Samples",

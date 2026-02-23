@@ -10,6 +10,7 @@ interface FolderNode {
 
 export function FolderTree() {
   const [pinnedFolders, setPinnedFolders] = useState<FolderNode[]>([]);
+  const activeFolder = useBrowserStore((s) => s.activeFolder);
   const setActiveFolder = useBrowserStore((s) => s.setActiveFolder);
 
   useEffect(() => {
@@ -45,6 +46,7 @@ export function FolderTree() {
   function handleUnpin(path: string) {
     rpcClient?.send.dbUnpinFolder({ path });
     setPinnedFolders((prev) => prev.filter((n) => n.path !== path));
+    if (activeFolder === path) setActiveFolder(null);
   }
 
   return (
