@@ -1,7 +1,7 @@
 import { BrowserView } from "electrobun/bun";
 import type { CrateRPC } from "../shared/types";
 import { queries } from "./db";
-import { readdir, listDirs, watchDirectory } from "./filesystem";
+import { listDirs, readdir, watchDirectory } from "./filesystem";
 
 // Active directory watchers — keyed by path
 const watchers = new Map<string, () => void>();
@@ -22,7 +22,7 @@ export function createRpc(onDirectoryChanged: (path: string) => void) {
           if (!file) return null;
           // Return only what the DB has cached from a previous analysis run.
           // The renderer (Mediabunny) fills in the rest for new/unanalyzed files.
-          const row = (file as unknown as Record<string, unknown>);
+          const row = file as unknown as Record<string, unknown>;
           const duration = row["duration"] as number | null;
           if (!duration) return null;
           return {
@@ -44,7 +44,8 @@ export function createRpc(onDirectoryChanged: (path: string) => void) {
       messages: {
         settingsSet: ({ key, value }) => queries.setSetting(key, value),
 
-        dbSetColorTag: ({ path, color }) => queries.setColorTagByPath(path, color),
+        dbSetColorTag: ({ path, color }) =>
+          queries.setColorTagByPath(path, color),
 
         dbPinFolder: ({ path }) => queries.pinFolder(path),
 

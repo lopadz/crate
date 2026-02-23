@@ -1,9 +1,9 @@
 import { useState } from "react";
 import type { AudioFile, TagColor } from "../../shared/types";
-import { formatSize, formatDuration } from "../utils/format";
-import { TagBadge } from "./TagBadge";
-import { useBrowserStore } from "../stores/browserStore";
 import { rpcClient } from "../rpc";
+import { useBrowserStore } from "../stores/browserStore";
+import { formatDuration, formatSize } from "../utils/format";
+import { TagBadge } from "./TagBadge";
 
 const TAG_COLORS: Record<NonNullable<TagColor>, string> = {
   green: "bg-green-500",
@@ -37,7 +37,9 @@ export function FileRow({ file, isSelected, onClick, style }: FileRowProps) {
     <div
       data-testid="file-row"
       className={`relative flex items-center gap-2 px-3 text-sm cursor-pointer select-none h-9 ${
-        isSelected ? "selected bg-indigo-600 text-white" : "text-gray-300 hover:bg-[#252525]"
+        isSelected
+          ? "selected bg-indigo-600 text-white"
+          : "text-gray-300 hover:bg-[#252525]"
       }`}
       style={style}
       onClick={onClick}
@@ -54,17 +56,24 @@ export function FileRow({ file, isSelected, onClick, style }: FileRowProps) {
 
       <span className="flex-1 truncate">{file.name}</span>
 
-      <span className="text-gray-500 w-10 text-right shrink-0">{file.extension}</span>
+      <span className="text-gray-500 w-10 text-right shrink-0">
+        {file.extension}
+      </span>
 
       <span className="text-gray-500 w-12 text-right shrink-0">
         {file.duration != null ? formatDuration(file.duration) : "—"}
       </span>
 
-      <span className="text-gray-500 w-16 text-right shrink-0">{formatSize(file.size)}</span>
+      <span className="text-gray-500 w-16 text-right shrink-0">
+        {formatSize(file.size)}
+      </span>
 
       {showTagPicker && (
         <div className="absolute left-2 top-full z-10">
-          <TagBadge currentColor={file.colorTag ?? null} onSelect={handleSelectTag} />
+          <TagBadge
+            currentColor={file.colorTag ?? null}
+            onSelect={handleSelectTag}
+          />
         </div>
       )}
     </div>

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import WaveSurfer from "wavesurfer.js";
-import { usePlaybackStore } from "../stores/playbackStore";
 import { audioEngine } from "../services/audioEngine";
+import { usePlaybackStore } from "../stores/playbackStore";
 
 export function Waveform() {
   const currentFile = usePlaybackStore((s) => s.currentFile);
@@ -20,8 +20,8 @@ export function Waveform() {
       interact: true,
     });
 
-    ws.on("seek", (progress: number) => {
-      audioEngine.seek(progress * ws.getDuration());
+    ws.on("seeking", (currentTime: number) => {
+      audioEngine.seek(currentTime);
     });
 
     wsRef.current = ws;

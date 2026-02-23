@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { basename } from "../utils/path";
 import { rpcClient } from "../rpc";
 import { useBrowserStore } from "../stores/browserStore";
+import { basename } from "../utils/path";
 
 interface FolderNode {
   path: string;
@@ -10,16 +10,18 @@ interface FolderNode {
 
 export function FolderTree() {
   const [pinnedFolders, setPinnedFolders] = useState<FolderNode[]>([]);
-  const setActiveFolder = useBrowserStore((s) => s.setActiveFolder);
+  const setActiveFolder = useBrowserStore((s) => {
+    return s.setActiveFolder;
+  });
 
   useEffect(() => {
-    rpcClient.request.dbGetPinnedFolders({}).then((paths) => {
+    rpcClient?.request.dbGetPinnedFolders({}).then((paths) => {
       setPinnedFolders(paths.map((path) => ({ path, children: null })));
     });
   }, []);
 
   function handleExpand(path: string) {
-    rpcClient.request.fsListDirs({ path }).then((children) => {
+    rpcClient?.request.fsListDirs({ path }).then((children) => {
       setPinnedFolders((prev) =>
         prev.map((node) => (node.path === path ? { ...node, children } : node)),
       );
@@ -38,7 +40,10 @@ export function FolderTree() {
             >
               ▶
             </button>
-            <span onClick={() => setActiveFolder(node.path)} className="truncate">
+            <span
+              onClick={() => setActiveFolder(node.path)}
+              className="truncate"
+            >
               {basename(node.path)}
             </span>
           </div>

@@ -1,10 +1,10 @@
-import { useRef, useState, useEffect, useLayoutEffect } from "react";
 import {
   Virtualizer,
-  observeElementRect,
-  observeElementOffset,
   elementScroll,
+  observeElementOffset,
+  observeElementRect,
 } from "@tanstack/virtual-core";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useBrowserStore } from "../stores/browserStore";
 import { FileRow } from "./FileRow";
 
@@ -19,7 +19,10 @@ export function FileList() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [, rerender] = useState(0);
 
-  const virtualizerRef = useRef<Virtualizer<HTMLDivElement, HTMLDivElement>>();
+  const virtualizerRef = useRef<Virtualizer<
+    HTMLDivElement,
+    HTMLDivElement
+  > | null>(null);
   if (!virtualizerRef.current) {
     virtualizerRef.current = new Virtualizer({
       count: fileList.length,
@@ -82,7 +85,12 @@ export function FileList() {
             key={item.key}
             file={fileList[item.index]}
             isSelected={item.index === selectedIndex}
-            style={{ position: "absolute", top: item.start, width: "100%", height: item.size }}
+            style={{
+              position: "absolute",
+              top: item.start,
+              width: "100%",
+              height: item.size,
+            }}
             onClick={() => setSelectedIndex(item.index)}
           />
         ))}

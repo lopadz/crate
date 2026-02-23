@@ -12,28 +12,22 @@ function App() {
 
   return (
     <div className="flex flex-col h-screen bg-[#1a1a1a] text-gray-100 overflow-hidden">
-      <Group
-        orientation="horizontal"
-        className="flex-1 overflow-hidden"
-      >
-        <Panel defaultSize={18} minSize={12} maxSize={30}>
+      <Group orientation="horizontal" className="flex-1 overflow-hidden">
+        <Panel minSize={150} maxSize={300}>
           <Sidebar />
         </Panel>
 
         <Separator className="w-px bg-[#2a2a2a] hover:bg-indigo-500 transition-colors cursor-col-resize" />
 
-        <Panel defaultSize={57}>
-          <div
-            data-testid="file-list-panel"
-            className="h-full bg-[#1a1a1a]"
-          >
+        <Panel minSize={150} maxSize={600}>
+          <div data-testid="file-list-panel" className="h-full bg-[#1a1a1a]">
             <FileList />
           </div>
         </Panel>
 
         <Separator className="w-px bg-[#2a2a2a] hover:bg-indigo-500 transition-colors cursor-col-resize" />
 
-        <Panel defaultSize={25} minSize={15} maxSize={40}>
+        <Panel minSize={150} maxSize={300}>
           <DetailPanel />
         </Panel>
       </Group>
