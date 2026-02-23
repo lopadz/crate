@@ -1,8 +1,26 @@
 import { Input, UrlSource, AudioBufferSink, ALL_FORMATS } from "mediabunny";
 import type { AudioFile } from "../../shared/types";
 import { usePlaybackStore } from "../stores/playbackStore";
+import { useSettingsStore } from "../stores/settingsStore";
 
 const CACHE_MAX = 5;
+
+function computeGain(buffer: AudioBuffer, targetLufsDb: number): number {
+  let sumSquares = 0;
+  let totalSamples = 0;
+  for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
+    const data = buffer.getChannelData(ch);
+    for (let i = 0; i < data.length; i++) {
+      sumSquares += data[i] * data[i];
+    }
+    totalSamples += data.length;
+  }
+  const rms = Math.sqrt(sumSquares / totalSamples);
+  if (rms === 0) return 1.0;
+  const measuredDb = 20 * Math.log10(rms);
+  const gainDb = targetLufsDb - measuredDb;
+  return Math.pow(10, gainDb / 20);
+}
 
 function mergeChunks(ctx: AudioContext, chunks: AudioBuffer[]): AudioBuffer {
   if (chunks.length === 0) return ctx.createBuffer(1, 1, 44100);
@@ -74,7 +92,17 @@ export class AudioEngine {
 
     const source = ctx.createBufferSource();
     source.buffer = buffer;
-    source.connect(ctx.destination);
+
+    const { normalizeVolume, normalizationTargetLufs } = useSettingsStore.getState();
+    if (normalizeVolume) {
+      const gainNode = ctx.createGain();
+      gainNode.gain.value = computeGain(buffer, normalizationTargetLufs);
+      source.connect(gainNode);
+      gainNode.connect(ctx.destination);
+    } else {
+      source.connect(ctx.destination);
+    }
+
     source.start(0, this.pauseOffset);
     this.startedAt = ctx.currentTime - this.pauseOffset;
     this.pauseOffset = 0;

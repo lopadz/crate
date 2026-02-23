@@ -56,6 +56,10 @@ const makeSourceNode = () => ({
   onended: null as (() => void) | null,
 });
 
+const mockGainConnect = vi.fn();
+const mockGainNode = { connect: mockGainConnect, gain: { value: 1.0 } };
+const mockCreateGain = vi.fn().mockReturnValue(mockGainNode);
+
 const mockCreateBufferSource = vi.fn().mockImplementation(makeSourceNode);
 const mockClose = vi.fn().mockResolvedValue(undefined);
 const mockCreateBuffer = vi.fn().mockReturnValue(mockAudioBuffer);
@@ -63,6 +67,7 @@ const mockCreateBuffer = vi.fn().mockReturnValue(mockAudioBuffer);
 class MockAudioContext {
   createBufferSource = mockCreateBufferSource;
   createBuffer = mockCreateBuffer;
+  createGain = mockCreateGain;
   destination = {};
   currentTime = 0;
   state = "running";
@@ -74,6 +79,7 @@ vi.stubGlobal("AudioContext", MockAudioContext);
 
 import { AudioEngine } from "./audioEngine";
 import { usePlaybackStore } from "../stores/playbackStore";
+import { useSettingsStore } from "../stores/settingsStore";
 import { Input } from "mediabunny";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -82,7 +88,7 @@ const file: AudioFile = { path: "/S/kick.wav", name: "kick.wav", extension: ".wa
 const prev: AudioFile = { path: "/S/prev.wav", name: "prev.wav", extension: ".wav", size: 500 };
 const next: AudioFile = { path: "/S/next.wav", name: "next.wav", extension: ".wav", size: 500 };
 
-const resetStore = () =>
+const resetStores = () => {
   usePlaybackStore.setState({
     currentFile: null,
     isPlaying: false,
@@ -91,6 +97,15 @@ const resetStore = () =>
     loop: false,
     volume: 1,
   });
+  useSettingsStore.setState({
+    pinnedFolders: [],
+    autoplay: false,
+    normalizeVolume: false,
+    normalizationTargetLufs: -14,
+    sidebarWidth: 220,
+    detailPanelWidth: 300,
+  });
+};
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -99,7 +114,7 @@ describe("AudioEngine", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    resetStore();
+    resetStores();
     engine = new AudioEngine();
   });
 
@@ -161,5 +176,44 @@ describe("AudioEngine", () => {
     await new Promise((r) => setTimeout(r, 20));
     // Input called: 1 for main + 2 for neighbors
     expect(Input).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe("AudioEngine — volume normalization", () => {
+  let engine: AudioEngine;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetStores();
+    engine = new AudioEngine();
+  });
+
+  afterEach(() => {
+    engine.dispose();
+  });
+
+  test("play() creates a GainNode when normalizeVolume is true", async () => {
+    useSettingsStore.setState({ ...useSettingsStore.getState(), normalizeVolume: true });
+    await engine.play(file);
+    expect(mockCreateGain).toHaveBeenCalledOnce();
+  });
+
+  test("play() does not create a GainNode when normalizeVolume is false", async () => {
+    await engine.play(file);
+    expect(mockCreateGain).not.toHaveBeenCalled();
+  });
+
+  test("source connects through GainNode to destination when normalizing", async () => {
+    useSettingsStore.setState({ ...useSettingsStore.getState(), normalizeVolume: true });
+    await engine.play(file);
+    // source.connect called with gainNode, gainNode.connect called with destination
+    expect(mockConnect).toHaveBeenCalledWith(mockGainNode);
+    expect(mockGainConnect).toHaveBeenCalledWith(expect.any(Object));
+  });
+
+  test("source connects directly to destination when not normalizing", async () => {
+    await engine.play(file);
+    // source.connect called directly with ctx.destination (not gainNode)
+    expect(mockConnect).not.toHaveBeenCalledWith(mockGainNode);
   });
 });
