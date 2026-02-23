@@ -1,5 +1,6 @@
 import { Group, Panel, Separator } from "react-resizable-panels";
 import { DetailPanel } from "./components/DetailPanel";
+import { FileList } from "./components/FileList";
 import { PlaybackBar } from "./components/PlaybackBar";
 import { Sidebar } from "./components/Sidebar";
 import { useFileList } from "./hooks/useFileList";
@@ -24,7 +25,7 @@ function App() {
             data-testid="file-list-panel"
             className="h-full bg-[#1a1a1a]"
           >
-            {/* FileList mounts here in Commit 8 */}
+            <FileList />
           </div>
         </Panel>
 

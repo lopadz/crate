@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 
 vi.mock("./rpc", () => ({
   rpcClient: {
-    request: { fsReaddir: vi.fn().mockResolvedValue([]), dbGetPinnedFolders: vi.fn().mockResolvedValue([]) },
+    request: { fsReaddir: vi.fn().mockResolvedValue([]), dbGetPinnedFolders: vi.fn().mockResolvedValue([]), fsListDirs: vi.fn().mockResolvedValue([]) },
     send: { fsStartWatch: vi.fn(), fsStopWatch: vi.fn() },
   },
 }));
