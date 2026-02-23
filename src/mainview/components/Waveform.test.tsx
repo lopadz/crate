@@ -104,15 +104,14 @@ describe("Waveform", () => {
     expect(mockDestroy).toHaveBeenCalledOnce();
   });
 
-  test("seek event calls audioEngine.seek with correct position", async () => {
+  test("seeking event calls audioEngine.seek with current time", async () => {
     render(<Waveform />);
-    // Capture the seek callback registered via ws.on("seek", cb)
-    const seekHandler = mockOn.mock.calls.find(([event]) => event === "seek")?.[1] as
-      | ((progress: number) => void)
+    // Capture the seeking callback registered via ws.on("seeking", cb)
+    const seekHandler = mockOn.mock.calls.find(([event]) => event === "seeking")?.[1] as
+      | ((currentTime: number) => void)
       | undefined;
     expect(seekHandler).toBeDefined();
-    act(() => seekHandler!(0.5));
-    // 0.5 * 10s duration = 5s
+    act(() => seekHandler!(5));
     expect(mockSeek).toHaveBeenCalledWith(5);
   });
 });

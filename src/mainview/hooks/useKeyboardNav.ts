@@ -4,7 +4,12 @@ import { useBrowserStore } from "../stores/browserStore";
 import { usePlaybackStore } from "../stores/playbackStore";
 import { useSettingsStore } from "../stores/settingsStore";
 import { audioEngine } from "../services/audioEngine";
+import { midiEngine } from "../services/midiEngine";
 import { rpcClient } from "../rpc";
+
+function isMidi(file: AudioFile): boolean {
+  return file.extension === ".mid" || file.extension === ".midi";
+}
 
 function getNeighbors(fileList: AudioFile[], index: number): AudioFile[] {
   return [fileList[index - 1], fileList[index + 1]].filter(Boolean);
@@ -48,16 +53,21 @@ export function useKeyboardNav(): void {
         case " ": {
           e.preventDefault();
           if (isPlaying) {
-            audioEngine.stop();
+            if (currentFile && isMidi(currentFile)) midiEngine.stop();
+            else audioEngine.stop();
           } else {
             const file = currentFile ?? fileList[selectedIndex];
-            if (file) audioEngine.play(file, getNeighbors(fileList, selectedIndex));
+            if (file) {
+              if (isMidi(file)) midiEngine.play(file);
+              else audioEngine.play(file, getNeighbors(fileList, selectedIndex));
+            }
           }
           break;
         }
 
         case "Escape": {
-          audioEngine.stop();
+          if (currentFile && isMidi(currentFile)) midiEngine.stop();
+          else audioEngine.stop();
           break;
         }
 

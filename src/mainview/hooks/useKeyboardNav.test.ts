@@ -4,15 +4,22 @@ import type { AudioFile } from "../../shared/types";
 
 // ── audioEngine mock ──────────────────────────────────────────────────────────
 
-const { mockPlay, mockStop, mockSeek, mockDbSetColorTag } = vi.hoisted(() => ({
-  mockPlay: vi.fn().mockResolvedValue(undefined),
-  mockStop: vi.fn(),
-  mockSeek: vi.fn(),
-  mockDbSetColorTag: vi.fn(),
-}));
+const { mockPlay, mockStop, mockSeek, mockDbSetColorTag, mockMidiPlay, mockMidiStop } =
+  vi.hoisted(() => ({
+    mockPlay: vi.fn().mockResolvedValue(undefined),
+    mockStop: vi.fn(),
+    mockSeek: vi.fn(),
+    mockDbSetColorTag: vi.fn(),
+    mockMidiPlay: vi.fn().mockResolvedValue(undefined),
+    mockMidiStop: vi.fn(),
+  }));
 
 vi.mock("../services/audioEngine", () => ({
   audioEngine: { play: mockPlay, stop: mockStop, seek: mockSeek },
+}));
+
+vi.mock("../services/midiEngine", () => ({
+  midiEngine: { play: mockMidiPlay, stop: mockMidiStop },
 }));
 
 vi.mock("../rpc", () => ({
@@ -192,5 +199,61 @@ describe("useKeyboardNav — color tag keys", () => {
     renderHook(() => useKeyboardNav());
     press("g");
     expect(mockDbSetColorTag).not.toHaveBeenCalled();
+  });
+});
+
+describe("useKeyboardNav — MIDI routing", () => {
+  const midiFile: AudioFile = {
+    path: "/S/beat.mid",
+    name: "beat.mid",
+    extension: ".mid",
+    size: 500,
+  };
+
+  beforeEach(() => {
+    useBrowserStore.setState({
+      ...useBrowserStore.getState(),
+      fileList: [files[0], midiFile, files[2]],
+      selectedIndex: 1, // MIDI file selected
+    });
+  });
+
+  test("Space with MIDI file selected calls midiEngine.play()", () => {
+    renderHook(() => useKeyboardNav());
+    press(" ");
+    expect(mockMidiPlay).toHaveBeenCalledWith(midiFile);
+    expect(mockPlay).not.toHaveBeenCalled();
+  });
+
+  test("Space while MIDI is playing calls midiEngine.stop()", () => {
+    usePlaybackStore.setState({
+      ...usePlaybackStore.getState(),
+      isPlaying: true,
+      currentFile: midiFile,
+    });
+    renderHook(() => useKeyboardNav());
+    press(" ");
+    expect(mockMidiStop).toHaveBeenCalledOnce();
+    expect(mockStop).not.toHaveBeenCalled();
+  });
+
+  test("Escape with MIDI currentFile calls midiEngine.stop()", () => {
+    usePlaybackStore.setState({
+      ...usePlaybackStore.getState(),
+      isPlaying: true,
+      currentFile: midiFile,
+    });
+    renderHook(() => useKeyboardNav());
+    press("Escape");
+    expect(mockMidiStop).toHaveBeenCalledOnce();
+    expect(mockStop).not.toHaveBeenCalled();
+  });
+
+  test("Space with .wav file selected still calls audioEngine.play()", () => {
+    useBrowserStore.setState({ ...useBrowserStore.getState(), selectedIndex: 0 });
+    renderHook(() => useKeyboardNav());
+    press(" ");
+    expect(mockPlay).toHaveBeenCalledOnce();
+    expect(mockMidiPlay).not.toHaveBeenCalled();
   });
 });
