@@ -11,7 +11,7 @@ interface FolderNode {
 
 export function FolderTree() {
   const [pinnedFolders, setPinnedFolders] = useState<FolderNode[]>([]);
-  const [showPicker, setShowPicker] = useState(false);
+  const [pickerPath, setPickerPath] = useState<string | null>(null);
   const setActiveFolder = useBrowserStore((s) => s.setActiveFolder);
 
   useEffect(() => {
@@ -28,10 +28,14 @@ export function FolderTree() {
     });
   }
 
+  function handleAddFolder() {
+    rpcClient?.request.fsGetHomeDir({}).then((home) => setPickerPath(home));
+  }
+
   function handlePin(path: string) {
     rpcClient?.send.dbPinFolder({ path });
     setPinnedFolders((prev) => [...prev, { path, children: null }]);
-    setShowPicker(false);
+    setPickerPath(null);
   }
 
   function handleUnpin(path: string) {
@@ -41,8 +45,8 @@ export function FolderTree() {
 
   return (
     <div data-testid="folder-tree" className="flex flex-col h-full">
-      {showPicker ? (
-        <FolderPicker initialPath="/" onPin={handlePin} onClose={() => setShowPicker(false)} />
+      {pickerPath !== null ? (
+        <FolderPicker initialPath={pickerPath} onPin={handlePin} onClose={() => setPickerPath(null)} />
       ) : (
         <div className="flex-1 overflow-y-auto">
           {pinnedFolders.map((node) => (
@@ -82,7 +86,7 @@ export function FolderTree() {
           <button
             data-testid="add-folder-btn"
             className="w-full px-3 py-1.5 text-left text-xs text-gray-600 hover:text-gray-400 hover:bg-[#222]"
-            onClick={() => setShowPicker(true)}
+            onClick={handleAddFolder}
           >
             + Add folder
           </button>

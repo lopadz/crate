@@ -17,6 +17,8 @@ export function createRpc(onDirectoryChanged: (path: string) => void) {
 
         fsListDirs: ({ path }) => listDirs(path),
 
+        fsGetHomeDir: () => process.env.HOME ?? "/",
+
         fsGetMetadata: ({ path }) => {
           const file = queries.getFileByPath(path);
           if (!file) return null;

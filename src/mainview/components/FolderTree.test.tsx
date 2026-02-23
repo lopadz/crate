@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 
 vi.mock("../rpc", () => ({
   rpcClient: {
-    request: { dbGetPinnedFolders: vi.fn(), fsListDirs: vi.fn() },
+    request: { dbGetPinnedFolders: vi.fn(), fsListDirs: vi.fn(), fsGetHomeDir: vi.fn() },
     send: { dbPinFolder: vi.fn(), dbUnpinFolder: vi.fn() },
   },
 }));
@@ -28,6 +28,7 @@ beforeEach(() => {
   });
   (rc.request.dbGetPinnedFolders as ReturnType<typeof vi.fn>).mockResolvedValue([]);
   (rc.request.fsListDirs as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+  (rc.request.fsGetHomeDir as ReturnType<typeof vi.fn>).mockResolvedValue("/Users/me");
 });
 
 describe("FolderTree", () => {
@@ -74,10 +75,12 @@ describe("FolderTree — pin/unpin", () => {
     expect(screen.getByTestId("add-folder-btn")).toBeDefined();
   });
 
-  test("clicking add-folder shows the FolderPicker", async () => {
+  test("clicking add-folder shows the FolderPicker at the home directory", async () => {
     render(<FolderTree />);
     await userEvent.click(screen.getByTestId("add-folder-btn"));
-    expect(screen.getByTestId("folder-picker")).toBeDefined();
+    await waitFor(() =>
+      expect(screen.getByTestId("folder-picker-path").textContent).toContain("/Users/me"),
+    );
   });
 
   test("pinning from FolderPicker calls dbPinFolder, shows the folder, and closes picker", async () => {
