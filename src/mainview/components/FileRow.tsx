@@ -49,7 +49,7 @@ export function FileRow({ file, isSelected, onClick, style }: FileRowProps) {
           : "text-gray-300 hover:bg-[#252525]"
       }`}
       style={style}
-      onClick={onClick}
+      onClick={isScanning ? undefined : onClick}
       onContextMenu={handleContextMenu}
     >
       {file.colorTag ? (

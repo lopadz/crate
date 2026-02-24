@@ -73,9 +73,9 @@ export class AudioEngine {
     return this.blobUrlCache.get(path);
   }
 
-  /** Fire-and-forget decode to warm the cache before the user presses play. */
-  preload(file: AudioFile): void {
-    this.decodeFile(file).catch(() => {});
+  /** Decode the file to warm the cache. Returns a Promise that resolves when ready. */
+  preload(file: AudioFile): Promise<void> {
+    return this.decodeFile(file).then(() => {});
   }
 
   async play(file: AudioFile, neighbors: AudioFile[] = []): Promise<void> {

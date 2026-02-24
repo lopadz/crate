@@ -300,4 +300,15 @@ describe("FileRow — scanning indicator", () => {
     render(<FileRow file={baseFile} isSelected={false} onClick={() => {}} />);
     expect(screen.getByTestId("file-name").className).not.toContain("opacity");
   });
+
+  test("clicking has no effect when scanning", async () => {
+    useAnalysisStore.setState({
+      ...useAnalysisStore.getState(),
+      fileStatuses: { "cid-kick": "queued" },
+    });
+    const onClick = vi.fn();
+    render(<FileRow file={baseFile} isSelected={false} onClick={onClick} />);
+    await userEvent.click(screen.getByTestId("file-row"));
+    expect(onClick).not.toHaveBeenCalled();
+  });
 });

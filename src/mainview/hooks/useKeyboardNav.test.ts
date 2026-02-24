@@ -36,6 +36,7 @@ vi.mock("../rpc", () => ({
 
 // ── Imports (after mocks) ─────────────────────────────────────────────────────
 
+import { useAnalysisStore } from "../stores/analysisStore";
 import { useBrowserStore } from "../stores/browserStore";
 import { usePlaybackStore } from "../stores/playbackStore";
 import { useSettingsStore } from "../stores/settingsStore";
@@ -102,6 +103,10 @@ const resetStores = () => {
 beforeEach(() => {
   vi.clearAllMocks();
   resetStores();
+  useAnalysisStore.setState({
+    queueStatus: { pending: 0, running: 0, total: 0 },
+    fileStatuses: {},
+  });
 });
 
 describe("useKeyboardNav", () => {
@@ -325,5 +330,51 @@ describe("useKeyboardNav — MIDI routing", () => {
     press(" ");
     expect(mockPlay).toHaveBeenCalledOnce();
     expect(mockMidiPlay).not.toHaveBeenCalled();
+  });
+});
+
+describe("useKeyboardNav — scanning skip", () => {
+  test("ArrowDown skips files whose analysis status is queued", () => {
+    // files = [a(0), b(1), c(2)]; b is scanning; start at 0 → should land on 2
+    useAnalysisStore.setState({
+      ...useAnalysisStore.getState(),
+      fileStatuses: { "cid-b": "queued" },
+    });
+    useBrowserStore.setState({
+      ...useBrowserStore.getState(),
+      selectedIndex: 0,
+    });
+    renderHook(() => useKeyboardNav());
+    press("ArrowDown");
+    expect(useBrowserStore.getState().selectedIndex).toBe(2);
+  });
+
+  test("ArrowUp skips files whose analysis status is queued", () => {
+    // files = [a(0), b(1), c(2)]; b is scanning; start at 2 → should land on 0
+    useAnalysisStore.setState({
+      ...useAnalysisStore.getState(),
+      fileStatuses: { "cid-b": "queued" },
+    });
+    useBrowserStore.setState({
+      ...useBrowserStore.getState(),
+      selectedIndex: 2,
+    });
+    renderHook(() => useKeyboardNav());
+    press("ArrowUp");
+    expect(useBrowserStore.getState().selectedIndex).toBe(0);
+  });
+
+  test("ArrowDown stays put when all remaining files are scanning", () => {
+    useAnalysisStore.setState({
+      ...useAnalysisStore.getState(),
+      fileStatuses: { "cid-b": "queued", "cid-c": "queued" },
+    });
+    useBrowserStore.setState({
+      ...useBrowserStore.getState(),
+      selectedIndex: 0,
+    });
+    renderHook(() => useKeyboardNav());
+    press("ArrowDown");
+    expect(useBrowserStore.getState().selectedIndex).toBe(0);
   });
 });

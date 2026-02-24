@@ -3,6 +3,7 @@ import type { AudioFile, TagColor } from "../../shared/types";
 import { rpcClient } from "../rpc";
 import { audioEngine } from "../services/audioEngine";
 import { midiEngine } from "../services/midiEngine";
+import { useAnalysisStore } from "../stores/analysisStore";
 import { useBrowserStore } from "../stores/browserStore";
 import { usePlaybackStore } from "../stores/playbackStore";
 import { useSettingsStore } from "../stores/settingsStore";
@@ -13,6 +14,22 @@ function isMidi(file: AudioFile): boolean {
 
 function getNeighbors(fileList: AudioFile[], index: number): AudioFile[] {
   return [fileList[index - 1], fileList[index + 1]].filter(Boolean);
+}
+
+function findNextSelectable(
+  fileList: AudioFile[],
+  fromIndex: number,
+  direction: 1 | -1,
+): number {
+  const { fileStatuses } = useAnalysisStore.getState();
+  let idx = fromIndex + direction;
+  while (idx >= 0 && idx < fileList.length) {
+    const f = fileList[idx];
+    if ((f.compositeId ? fileStatuses[f.compositeId] : undefined) !== "queued")
+      return idx;
+    idx += direction;
+  }
+  return fromIndex;
 }
 
 export function useKeyboardNav(): void {
@@ -26,7 +43,7 @@ export function useKeyboardNav(): void {
       )
         return;
 
-      const { fileList, selectedIndex, selectNext, selectPrev } =
+      const { fileList, selectedIndex, setSelectedIndex } =
         useBrowserStore.getState();
       const { isPlaying, currentFile } = usePlaybackStore.getState();
       const { autoplay } = useSettingsStore.getState();
@@ -34,12 +51,14 @@ export function useKeyboardNav(): void {
       switch (e.key) {
         case "ArrowDown": {
           e.preventDefault();
-          selectNext();
-          if (autoplay) {
-            const nextIdx = Math.min(selectedIndex + 1, fileList.length - 1);
-            const nextFile = fileList[nextIdx];
-            if (nextFile)
-              audioEngine.play(nextFile, getNeighbors(fileList, nextIdx));
+          const nextIdx = findNextSelectable(fileList, selectedIndex, 1);
+          if (nextIdx !== selectedIndex) {
+            setSelectedIndex(nextIdx);
+            if (autoplay) {
+              const nextFile = fileList[nextIdx];
+              if (nextFile)
+                audioEngine.play(nextFile, getNeighbors(fileList, nextIdx));
+            }
           }
           break;
         }
@@ -47,12 +66,14 @@ export function useKeyboardNav(): void {
         case "ArrowUp":
         case "ArrowLeft": {
           e.preventDefault();
-          selectPrev();
-          if (autoplay) {
-            const prevIdx = Math.max(selectedIndex - 1, 0);
-            const prevFile = fileList[prevIdx];
-            if (prevFile)
-              audioEngine.play(prevFile, getNeighbors(fileList, prevIdx));
+          const prevIdx = findNextSelectable(fileList, selectedIndex, -1);
+          if (prevIdx !== selectedIndex) {
+            setSelectedIndex(prevIdx);
+            if (autoplay) {
+              const prevFile = fileList[prevIdx];
+              if (prevFile)
+                audioEngine.play(prevFile, getNeighbors(fileList, prevIdx));
+            }
           }
           break;
         }

@@ -2,6 +2,14 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import type { AudioFile } from "../../shared/types";
 
+const { mockPreload } = vi.hoisted(() => ({
+  mockPreload: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("../services/audioEngine", () => ({
+  audioEngine: { preload: mockPreload },
+}));
+
 vi.mock("../rpc", () => ({
   rpcClient: {
     request: { fsReaddir: vi.fn() },
@@ -31,6 +39,7 @@ beforeEach(() => {
     queueStatus: { pending: 0, running: 0, total: 0 },
     fileStatuses: {},
   });
+  mockPreload.mockResolvedValue(undefined);
   (rpcClient?.request.fsReaddir as ReturnType<typeof vi.fn>).mockResolvedValue(
     [],
   );
@@ -106,6 +115,8 @@ describe("useFileList", () => {
   });
 
   test("sets analysis status to queued for files without lufsIntegrated", async () => {
+    // Make preload hang so the transient "queued" state is observable
+    mockPreload.mockImplementation(() => new Promise(() => {}));
     const mockFiles: AudioFile[] = [
       {
         path: "/S/a.wav",
@@ -150,6 +161,99 @@ describe("useFileList", () => {
     await waitFor(() =>
       expect(useAnalysisStore.getState().fileStatuses["cid-b"]).toBe("done"),
     );
+  });
+
+  test("calls audioEngine.preload for unanalyzed files after loading", async () => {
+    const mockFiles: AudioFile[] = [
+      {
+        path: "/S/a.wav",
+        name: "a.wav",
+        extension: ".wav",
+        size: 100,
+        compositeId: "cid-a",
+      },
+    ];
+    (
+      rpcClient?.request.fsReaddir as ReturnType<typeof vi.fn>
+    ).mockResolvedValue(mockFiles);
+    useBrowserStore.setState({
+      ...useBrowserStore.getState(),
+      activeFolder: "/S",
+    });
+    renderHook(() => useFileList());
+    await waitFor(() => expect(mockPreload).toHaveBeenCalledWith(mockFiles[0]));
+  });
+
+  test("marks file as done after preload resolves", async () => {
+    const mockFiles: AudioFile[] = [
+      {
+        path: "/S/a.wav",
+        name: "a.wav",
+        extension: ".wav",
+        size: 100,
+        compositeId: "cid-a",
+      },
+    ];
+    (
+      rpcClient?.request.fsReaddir as ReturnType<typeof vi.fn>
+    ).mockResolvedValue(mockFiles);
+    useBrowserStore.setState({
+      ...useBrowserStore.getState(),
+      activeFolder: "/S",
+    });
+    renderHook(() => useFileList());
+    await waitFor(() =>
+      expect(useAnalysisStore.getState().fileStatuses["cid-a"]).toBe("done"),
+    );
+  });
+
+  test("marks file as error if preload rejects", async () => {
+    const mockFiles: AudioFile[] = [
+      {
+        path: "/S/a.wav",
+        name: "a.wav",
+        extension: ".wav",
+        size: 100,
+        compositeId: "cid-a",
+      },
+    ];
+    mockPreload.mockRejectedValue(new Error("decode failed"));
+    (
+      rpcClient?.request.fsReaddir as ReturnType<typeof vi.fn>
+    ).mockResolvedValue(mockFiles);
+    useBrowserStore.setState({
+      ...useBrowserStore.getState(),
+      activeFolder: "/S",
+    });
+    renderHook(() => useFileList());
+    await waitFor(() =>
+      expect(useAnalysisStore.getState().fileStatuses["cid-a"]).toBe("error"),
+    );
+  });
+
+  test("does not call preload for already-analyzed files", async () => {
+    const mockFiles: AudioFile[] = [
+      {
+        path: "/S/a.wav",
+        name: "a.wav",
+        extension: ".wav",
+        size: 100,
+        compositeId: "cid-a",
+        lufsIntegrated: -14,
+      },
+    ];
+    (
+      rpcClient?.request.fsReaddir as ReturnType<typeof vi.fn>
+    ).mockResolvedValue(mockFiles);
+    useBrowserStore.setState({
+      ...useBrowserStore.getState(),
+      activeFolder: "/S",
+    });
+    renderHook(() => useFileList());
+    await waitFor(() =>
+      expect(useBrowserStore.getState().fileList).toEqual(mockFiles),
+    );
+    expect(mockPreload).not.toHaveBeenCalled();
   });
 
   test("skips files without compositeId when setting analysis status", async () => {
