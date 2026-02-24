@@ -33,9 +33,12 @@ export function Waveform() {
   }, []);
 
   // Load new file whenever currentFile changes
+  // Load new file whenever currentFile changes.
+  // audioEngine always decodes before setting currentFile, so the blob URL is ready.
   useEffect(() => {
     if (!currentFile || !wsRef.current) return;
-    wsRef.current.load(`file://${currentFile.path}`);
+    const blobUrl = audioEngine.getBlobUrl(currentFile.path);
+    if (blobUrl) wsRef.current.load(blobUrl);
   }, [currentFile]);
 
   return (

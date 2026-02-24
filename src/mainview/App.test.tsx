@@ -24,7 +24,13 @@ vi.mock("wavesurfer.js", () => ({
     }),
   },
 }));
-vi.mock("./services/audioEngine", () => ({ audioEngine: { seek: vi.fn() } }));
+vi.mock("./services/audioEngine", () => ({
+  audioEngine: {
+    seek: vi.fn(),
+    preload: vi.fn(),
+    getBlobUrl: vi.fn().mockReturnValue(undefined),
+  },
+}));
 
 import App from "./App";
 

@@ -59,6 +59,12 @@ class MockAudioContext {
 }
 vi.stubGlobal("AudioContext", MockAudioContext);
 
+// ── URL mock (jsdom doesn't implement createObjectURL) ────────────────────────
+const mockCreateObjectURL = vi.fn().mockReturnValue("blob:mock://test");
+const mockRevokeObjectURL = vi.fn();
+URL.createObjectURL = mockCreateObjectURL;
+URL.revokeObjectURL = mockRevokeObjectURL;
+
 // ── Imports (after mocks) ─────────────────────────────────────────────────────
 
 import { usePlaybackStore } from "../stores/playbackStore";
@@ -181,6 +187,30 @@ describe("AudioEngine", () => {
     await new Promise((r) => setTimeout(r, 20));
     // fsReadAudio called: 1 for main + 2 for neighbors
     expect(mockFsReadAudio).toHaveBeenCalledTimes(3);
+  });
+
+  test("getBlobUrl() returns the blob URL after a file is played", async () => {
+    await engine.play(file);
+    expect(engine.getBlobUrl(file.path)).toBe("blob:mock://test");
+  });
+
+  test("getBlobUrl() returns undefined for a file that has not been loaded", () => {
+    expect(engine.getBlobUrl("/never/loaded.wav")).toBeUndefined();
+  });
+
+  test("preload() warms the cache without playing", async () => {
+    engine.preload(file);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(mockFsReadAudio).toHaveBeenCalledWith({ path: file.path });
+    expect(engine.getBlobUrl(file.path)).toBe("blob:mock://test");
+    // No source node was started
+    expect(mockStart).not.toHaveBeenCalled();
+  });
+
+  test("dispose() revokes all blob URLs", async () => {
+    await engine.play(file);
+    engine.dispose();
+    expect(mockRevokeObjectURL).toHaveBeenCalledWith("blob:mock://test");
   });
 });
 

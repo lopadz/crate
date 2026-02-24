@@ -1,19 +1,26 @@
-import { vi, describe, test, expect, beforeEach } from "vitest";
-import { render, screen, act } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import type { AudioFile } from "../../shared/types";
 
 // ── Hoisted mock handles (must precede vi.mock hoisting) ─────────────────────
 
-const { mockLoad, mockDestroy, mockGetDuration, mockOn, mockCreate, mockSeek } = vi.hoisted(
-  () => ({
-    mockLoad: vi.fn().mockResolvedValue(undefined),
-    mockDestroy: vi.fn(),
-    mockGetDuration: vi.fn().mockReturnValue(10),
-    mockOn: vi.fn(),
-    mockCreate: vi.fn(),
-    mockSeek: vi.fn(),
-  }),
-);
+const {
+  mockLoad,
+  mockDestroy,
+  mockGetDuration,
+  mockOn,
+  mockCreate,
+  mockSeek,
+  mockGetBlobUrl,
+} = vi.hoisted(() => ({
+  mockLoad: vi.fn().mockResolvedValue(undefined),
+  mockDestroy: vi.fn(),
+  mockGetDuration: vi.fn().mockReturnValue(10),
+  mockOn: vi.fn(),
+  mockCreate: vi.fn(),
+  mockSeek: vi.fn(),
+  mockGetBlobUrl: vi.fn().mockReturnValue("blob:mock://test"),
+}));
 
 // ── WaveSurfer mock ───────────────────────────────────────────────────────────
 
@@ -24,13 +31,13 @@ vi.mock("wavesurfer.js", () => ({
 // ── audioEngine mock ──────────────────────────────────────────────────────────
 
 vi.mock("../services/audioEngine", () => ({
-  audioEngine: { seek: mockSeek },
+  audioEngine: { seek: mockSeek, getBlobUrl: mockGetBlobUrl },
 }));
 
 // ── Imports (after mocks) ─────────────────────────────────────────────────────
 
-import { Waveform } from "./Waveform";
 import { usePlaybackStore } from "../stores/playbackStore";
+import { Waveform } from "./Waveform";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -45,8 +52,18 @@ const makeWsInstance = () => {
   return inst;
 };
 
-const file: AudioFile = { path: "/S/kick.wav", name: "kick.wav", extension: ".wav", size: 1000 };
-const file2: AudioFile = { path: "/S/snare.mp3", name: "snare.mp3", extension: ".mp3", size: 2000 };
+const file: AudioFile = {
+  path: "/S/kick.wav",
+  name: "kick.wav",
+  extension: ".wav",
+  size: 1000,
+};
+const file2: AudioFile = {
+  path: "/S/snare.mp3",
+  name: "snare.mp3",
+  extension: ".mp3",
+  size: 2000,
+};
 
 const resetStore = () =>
   usePlaybackStore.setState({
@@ -75,21 +92,35 @@ describe("Waveform", () => {
     expect(mockCreate).toHaveBeenCalledOnce();
   });
 
-  test("loads the current file when currentFile is set", async () => {
-    usePlaybackStore.setState({ ...usePlaybackStore.getState(), currentFile: file });
+  test("loads the current file via blob URL when currentFile is set", async () => {
+    usePlaybackStore.setState({
+      ...usePlaybackStore.getState(),
+      currentFile: file,
+    });
     render(<Waveform />);
     await act(async () => {});
-    expect(mockLoad).toHaveBeenCalledWith(`file://${file.path}`);
+    expect(mockGetBlobUrl).toHaveBeenCalledWith(file.path);
+    expect(mockLoad).toHaveBeenCalledWith("blob:mock://test");
   });
 
-  test("re-loads when currentFile changes", async () => {
+  test("re-loads via blob URL when currentFile changes", async () => {
     render(<Waveform />);
-    act(() => usePlaybackStore.setState({ ...usePlaybackStore.getState(), currentFile: file }));
+    act(() =>
+      usePlaybackStore.setState({
+        ...usePlaybackStore.getState(),
+        currentFile: file,
+      }),
+    );
     await act(async () => {});
-    act(() => usePlaybackStore.setState({ ...usePlaybackStore.getState(), currentFile: file2 }));
+    act(() =>
+      usePlaybackStore.setState({
+        ...usePlaybackStore.getState(),
+        currentFile: file2,
+      }),
+    );
     await act(async () => {});
     expect(mockLoad).toHaveBeenCalledTimes(2);
-    expect(mockLoad).toHaveBeenLastCalledWith(`file://${file2.path}`);
+    expect(mockLoad).toHaveBeenLastCalledWith("blob:mock://test");
   });
 
   test("does not call load when currentFile is null", async () => {
@@ -107,9 +138,9 @@ describe("Waveform", () => {
   test("seeking event calls audioEngine.seek with current time", async () => {
     render(<Waveform />);
     // Capture the seeking callback registered via ws.on("seeking", cb)
-    const seekHandler = mockOn.mock.calls.find(([event]) => event === "seeking")?.[1] as
-      | ((currentTime: number) => void)
-      | undefined;
+    const seekHandler = mockOn.mock.calls.find(
+      ([event]) => event === "seeking",
+    )?.[1] as ((currentTime: number) => void) | undefined;
     expect(seekHandler).toBeDefined();
     act(() => seekHandler!(5));
     expect(mockSeek).toHaveBeenCalledWith(5);

@@ -26,6 +26,7 @@ export class AudioEngine {
   private ctx: AudioContext | null = null;
   private source: AudioBufferSourceNode | null = null;
   private cache = new Map<string, AudioBuffer>();
+  private blobUrlCache = new Map<string, string>();
   private pauseOffset = 0;
   private startedAt = 0;
 
@@ -43,16 +44,38 @@ export class AudioEngine {
     if (!base64) throw new Error(`Failed to read audio: ${file.path}`);
 
     const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+
+    // Create a blob URL so other consumers (e.g. WaveSurfer) can load without CORS issues
+    if (!this.blobUrlCache.has(file.path)) {
+      const blob = new Blob([bytes]);
+      this.blobUrlCache.set(file.path, URL.createObjectURL(blob));
+    }
+
     const buffer = await ctx.decodeAudioData(bytes.buffer);
 
     // Evict oldest entry if cache is full
     if (this.cache.size >= CACHE_MAX) {
       const oldest = this.cache.keys().next().value as string;
+      const evictedUrl = this.blobUrlCache.get(oldest);
+      if (evictedUrl) {
+        URL.revokeObjectURL(evictedUrl);
+        this.blobUrlCache.delete(oldest);
+      }
       this.cache.delete(oldest);
     }
     this.cache.set(file.path, buffer);
 
     return buffer;
+  }
+
+  /** Returns a blob URL for the file if it has been loaded, undefined otherwise. */
+  getBlobUrl(path: string): string | undefined {
+    return this.blobUrlCache.get(path);
+  }
+
+  /** Fire-and-forget decode to warm the cache before the user presses play. */
+  preload(file: AudioFile): void {
+    this.decodeFile(file).catch(() => {});
   }
 
   async play(file: AudioFile, neighbors: AudioFile[] = []): Promise<void> {
@@ -144,6 +167,10 @@ export class AudioEngine {
     this.ctx?.close();
     this.ctx = null;
     this.cache.clear();
+    for (const url of this.blobUrlCache.values()) {
+      URL.revokeObjectURL(url);
+    }
+    this.blobUrlCache.clear();
   }
 }
 

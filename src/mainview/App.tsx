@@ -4,10 +4,12 @@ import { FileList } from "./components/FileList";
 import { PlaybackBar } from "./components/PlaybackBar";
 import { Sidebar } from "./components/Sidebar";
 import { useFileList } from "./hooks/useFileList";
+import { useFilePreload } from "./hooks/useFilePreload";
 import { useKeyboardNav } from "./hooks/useKeyboardNav";
 
 function App() {
   useFileList();
+  useFilePreload();
   useKeyboardNav();
 
   return (

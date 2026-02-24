@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { rpcClient } from "../rpc";
+import { useAnalysisStore } from "../stores/analysisStore";
 import { useBrowserStore } from "../stores/browserStore";
 
 export function useFileList() {
@@ -11,8 +12,20 @@ export function useFileList() {
 
     let cancelled = false;
 
+    const loadFiles = (files: Parameters<typeof setFileList>[0]) => {
+      setFileList(files);
+      const { setFileStatus } = useAnalysisStore.getState();
+      for (const f of files) {
+        if (!f.compositeId) continue;
+        setFileStatus(
+          f.compositeId,
+          f.lufsIntegrated != null ? "done" : "queued",
+        );
+      }
+    };
+
     rpcClient?.request.fsReaddir({ path: activeFolder }).then((files) => {
-      if (!cancelled) setFileList(files);
+      if (!cancelled) loadFiles(files);
     });
 
     rpcClient?.send.fsStartWatch({ path: activeFolder });
@@ -21,7 +34,7 @@ export function useFileList() {
       const { path } = (e as CustomEvent<{ path: string }>).detail;
       if (path === activeFolder) {
         rpcClient?.request.fsReaddir({ path: activeFolder }).then((files) => {
-          if (!cancelled) setFileList(files);
+          if (!cancelled) loadFiles(files);
         });
       }
     };

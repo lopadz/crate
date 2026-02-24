@@ -13,6 +13,7 @@ vi.mock("../rpc", () => ({
   },
 }));
 
+import { useAnalysisStore } from "../stores/analysisStore";
 import { useBrowserStore } from "../stores/browserStore";
 import { FileRow } from "./FileRow";
 
@@ -39,6 +40,10 @@ beforeEach(() => {
     sortKey: "name",
     sortDir: "asc",
     filter: "",
+  });
+  useAnalysisStore.setState({
+    queueStatus: { pending: 0, running: 0, total: 0 },
+    fileStatuses: {},
   });
 });
 
@@ -255,5 +260,44 @@ describe("FileRow — analysis columns", () => {
       />,
     );
     expect(screen.getByTestId("col-lufs").textContent).toBe("-14");
+  });
+});
+
+describe("FileRow — scanning indicator", () => {
+  test("shows scanning indicator when file status is queued", () => {
+    useAnalysisStore.setState({
+      ...useAnalysisStore.getState(),
+      fileStatuses: { "cid-kick": "queued" },
+    });
+    render(<FileRow file={baseFile} isSelected={false} onClick={() => {}} />);
+    expect(screen.getByTestId("scanning-indicator")).toBeDefined();
+  });
+
+  test("does not show scanning indicator when status is done", () => {
+    useAnalysisStore.setState({
+      ...useAnalysisStore.getState(),
+      fileStatuses: { "cid-kick": "done" },
+    });
+    render(<FileRow file={baseFile} isSelected={false} onClick={() => {}} />);
+    expect(screen.queryByTestId("scanning-indicator")).toBeNull();
+  });
+
+  test("does not show scanning indicator when status is absent", () => {
+    render(<FileRow file={baseFile} isSelected={false} onClick={() => {}} />);
+    expect(screen.queryByTestId("scanning-indicator")).toBeNull();
+  });
+
+  test("filename is dimmed when scanning", () => {
+    useAnalysisStore.setState({
+      ...useAnalysisStore.getState(),
+      fileStatuses: { "cid-kick": "queued" },
+    });
+    render(<FileRow file={baseFile} isSelected={false} onClick={() => {}} />);
+    expect(screen.getByTestId("file-name").className).toContain("opacity");
+  });
+
+  test("filename is not dimmed when not scanning", () => {
+    render(<FileRow file={baseFile} isSelected={false} onClick={() => {}} />);
+    expect(screen.getByTestId("file-name").className).not.toContain("opacity");
   });
 });
