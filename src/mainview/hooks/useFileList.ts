@@ -1,6 +1,5 @@
 import { useEffect } from "react";
 import { rpcClient } from "../rpc";
-import { audioEngine } from "../services/audioEngine";
 import { useAnalysisStore } from "../stores/analysisStore";
 import { useBrowserStore } from "../stores/browserStore";
 
@@ -30,13 +29,10 @@ export function useFileList() {
       for (const f of files) {
         if (cancelled) break;
         if (!f.compositeId || f.lufsIntegrated != null) continue;
-        try {
-          await audioEngine.preload(f);
-          if (!cancelled && f.compositeId) setFileStatus(f.compositeId, "done");
-        } catch {
-          if (!cancelled && f.compositeId)
-            setFileStatus(f.compositeId, "error");
-        }
+        // Yield to the event loop between files so UI stays responsive.
+        // Real analysis (BPM/key/LUFS) will run here in a future commit.
+        await new Promise<void>((r) => setTimeout(r, 0));
+        if (!cancelled && f.compositeId) setFileStatus(f.compositeId, "done");
       }
     };
 
