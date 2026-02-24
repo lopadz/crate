@@ -1,12 +1,17 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import type { AudioFile, Collection } from "../../shared/types";
 
-const { mockCollectionGetAll, mockCollectionCreate, mockCollectionGetFiles } =
-  vi.hoisted(() => ({
-    mockCollectionGetAll: vi.fn(),
-    mockCollectionCreate: vi.fn(),
-    mockCollectionGetFiles: vi.fn(),
-  }));
+const {
+  mockCollectionGetAll,
+  mockCollectionCreate,
+  mockCollectionGetFiles,
+  mockCollectionDelete,
+} = vi.hoisted(() => ({
+  mockCollectionGetAll: vi.fn(),
+  mockCollectionCreate: vi.fn(),
+  mockCollectionGetFiles: vi.fn(),
+  mockCollectionDelete: vi.fn(),
+}));
 
 vi.mock("../rpc", () => ({
   rpcClient: {
@@ -15,7 +20,9 @@ vi.mock("../rpc", () => ({
       collectionCreate: mockCollectionCreate,
       collectionGetFiles: mockCollectionGetFiles,
     },
-    send: {},
+    send: {
+      collectionDelete: mockCollectionDelete,
+    },
   },
 }));
 
@@ -140,5 +147,57 @@ describe("collectionStore — createCollection", () => {
     mockCollectionGetAll.mockResolvedValue([col1, col2, newCol]);
     await useCollectionStore.getState().createCollection("NewColl", null, null);
     expect(useCollectionStore.getState().collections).toHaveLength(3);
+  });
+});
+
+describe("collectionStore — deleteCollection", () => {
+  test("sends collectionDelete RPC with the collection id", async () => {
+    mockCollectionGetAll.mockResolvedValue([col2]);
+    await useCollectionStore.getState().deleteCollection(1);
+    expect(mockCollectionDelete).toHaveBeenCalledWith({ collectionId: 1 });
+  });
+
+  test("refreshes the list after delete", async () => {
+    useCollectionStore.setState({
+      collections: [col1, col2],
+      activeCollectionId: null,
+    });
+    mockCollectionGetAll.mockResolvedValue([col2]);
+    await useCollectionStore.getState().deleteCollection(1);
+    expect(useCollectionStore.getState().collections).toEqual([col2]);
+  });
+
+  test("clears activeCollectionId when the active collection is deleted", async () => {
+    useCollectionStore.setState({ collections: [col1], activeCollectionId: 1 });
+    mockCollectionGetAll.mockResolvedValue([]);
+    await useCollectionStore.getState().deleteCollection(1);
+    expect(useCollectionStore.getState().activeCollectionId).toBeNull();
+  });
+
+  test("clears fileList when the active collection is deleted", async () => {
+    const file: AudioFile = {
+      path: "/a.wav",
+      name: "a.wav",
+      extension: ".wav",
+      size: 0,
+    };
+    useBrowserStore.setState({
+      ...useBrowserStore.getState(),
+      fileList: [file],
+    });
+    useCollectionStore.setState({ collections: [col1], activeCollectionId: 1 });
+    mockCollectionGetAll.mockResolvedValue([]);
+    await useCollectionStore.getState().deleteCollection(1);
+    expect(useBrowserStore.getState().fileList).toEqual([]);
+  });
+
+  test("does not clear activeCollectionId when a different collection is deleted", async () => {
+    useCollectionStore.setState({
+      collections: [col1, col2],
+      activeCollectionId: 2,
+    });
+    mockCollectionGetAll.mockResolvedValue([col2]);
+    await useCollectionStore.getState().deleteCollection(1);
+    expect(useCollectionStore.getState().activeCollectionId).toBe(2);
   });
 });

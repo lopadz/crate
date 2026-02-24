@@ -10,6 +10,7 @@ export function Sidebar() {
     loadCollections,
     selectCollection,
     createCollection,
+    deleteCollection,
   } = useCollectionStore();
 
   useEffect(() => {
@@ -31,17 +32,29 @@ export function Sidebar() {
           Collections
         </div>
         {collections.map((c) => (
-          <button
-            key={c.id}
-            data-testid={`collection-item-${c.id}`}
-            type="button"
-            className={`w-full text-left px-4 py-1 text-xs truncate hover:bg-[#222] ${
-              activeCollectionId === c.id ? "text-indigo-400" : "text-gray-400"
-            }`}
-            onClick={() => void selectCollection(c.id)}
-          >
-            {c.name}
-          </button>
+          <div key={c.id} className="group flex items-center hover:bg-[#222]">
+            <button
+              data-testid={`collection-item-${c.id}`}
+              type="button"
+              className={`flex-1 text-left px-4 py-1 text-xs truncate ${
+                activeCollectionId === c.id
+                  ? "text-indigo-400"
+                  : "text-gray-400"
+              }`}
+              onClick={() => void selectCollection(c.id)}
+            >
+              {c.name}
+            </button>
+            <button
+              data-testid={`collection-delete-${c.id}`}
+              type="button"
+              aria-label="delete collection"
+              className="hidden group-hover:block text-gray-600 hover:text-red-400 px-2 text-xs shrink-0"
+              onClick={() => void deleteCollection(c.id)}
+            >
+              ×
+            </button>
+          </div>
         ))}
         <SmartCollectionEditor
           onSave={(name, color, queryJson) =>

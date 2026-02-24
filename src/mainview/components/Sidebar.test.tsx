@@ -70,6 +70,29 @@ describe("Sidebar — collections section", () => {
     expect(screen.getByText("Kicks")).toBeDefined();
   });
 
+  test("renders a delete button for each collection", () => {
+    useCollectionStore.setState({
+      collections: [col1],
+      activeCollectionId: null,
+    });
+    render(<Sidebar />);
+    expect(screen.getByTestId("collection-delete-1")).toBeDefined();
+  });
+
+  test("clicking delete calls deleteCollection with the collection id", async () => {
+    const deleteCollection = vi.fn().mockResolvedValue(undefined);
+    const loadCollections = vi.fn().mockResolvedValue(undefined);
+    useCollectionStore.setState({
+      collections: [col1],
+      activeCollectionId: null,
+      deleteCollection,
+      loadCollections,
+    });
+    render(<Sidebar />);
+    await userEvent.click(screen.getByTestId("collection-delete-1"));
+    expect(deleteCollection).toHaveBeenCalledWith(1);
+  });
+
   test("clicking a collection calls selectCollection", async () => {
     const selectCollection = vi.fn().mockResolvedValue(undefined);
     // Also stub loadCollections so the useEffect doesn't overwrite our test state

@@ -13,6 +13,7 @@ interface CollectionState {
     color: string | null,
     queryJson: string | null,
   ) => Promise<void>;
+  deleteCollection: (id: number) => Promise<void>;
 }
 
 export const useCollectionStore = create<CollectionState>((set) => ({
@@ -35,6 +36,17 @@ export const useCollectionStore = create<CollectionState>((set) => ({
 
   async createCollection(name, color, queryJson) {
     await rpcClient?.request.collectionCreate({ name, color, queryJson });
+    const collections = await rpcClient?.request.collectionGetAll({});
+    if (collections) set({ collections });
+  },
+
+  async deleteCollection(id) {
+    rpcClient?.send.collectionDelete({ collectionId: id });
+    const { activeCollectionId } = useCollectionStore.getState();
+    if (activeCollectionId === id) {
+      set({ activeCollectionId: null });
+      useBrowserStore.getState().setFileList([]);
+    }
     const collections = await rpcClient?.request.collectionGetAll({});
     if (collections) set({ collections });
   },
