@@ -9,6 +9,7 @@ vi.mock("./rpc", () => ({
       dbGetPinnedFolders: vi.fn().mockResolvedValue([]),
       fsReaddir: vi.fn().mockResolvedValue([]),
       fsListDirs: vi.fn().mockResolvedValue([]),
+      collectionGetAll: vi.fn().mockResolvedValue([]),
     },
     send: { fsStartWatch: vi.fn(), fsStopWatch: vi.fn() },
   },
