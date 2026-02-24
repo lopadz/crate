@@ -67,7 +67,8 @@ describe("FileRow", () => {
 
   test("renders dash when duration is unavailable", () => {
     render(<FileRow file={baseFile} isSelected={false} onClick={() => {}} />);
-    expect(screen.getByText("—")).toBeDefined();
+    // Multiple columns show "—" for missing data; at least one must be present
+    expect(screen.getAllByText("—").length).toBeGreaterThan(0);
   });
 
   test("calls onClick when the row is clicked", async () => {
@@ -204,5 +205,55 @@ describe("FileRow — right-click color tagging", () => {
     });
     await userEvent.click(screen.getByTestId("tag-option-yellow"));
     expect(screen.queryByTestId("tag-badge")).toBeNull();
+  });
+});
+
+describe("FileRow — analysis columns", () => {
+  test("BPM column shows — when bpm is undefined", () => {
+    render(<FileRow file={baseFile} isSelected={false} onClick={() => {}} />);
+    expect(screen.getByTestId("col-bpm").textContent).toBe("—");
+  });
+
+  test("BPM column shows rounded value when bpm is set", () => {
+    render(
+      <FileRow
+        file={{ ...baseFile, bpm: 120.5 }}
+        isSelected={false}
+        onClick={() => {}}
+      />,
+    );
+    expect(screen.getByTestId("col-bpm").textContent).toBe("121");
+  });
+
+  test("key column shows — when keyCamelot is undefined", () => {
+    render(<FileRow file={baseFile} isSelected={false} onClick={() => {}} />);
+    expect(screen.getByTestId("col-key").textContent).toBe("—");
+  });
+
+  test("key column shows Camelot code when available", () => {
+    render(
+      <FileRow
+        file={{ ...baseFile, keyCamelot: "8A" }}
+        isSelected={false}
+        onClick={() => {}}
+      />,
+    );
+    expect(screen.getByTestId("col-key").textContent).toBe("8A");
+  });
+
+  test("LUFS column shows — when lufsIntegrated is undefined", () => {
+    render(<FileRow file={baseFile} isSelected={false} onClick={() => {}} />);
+    expect(screen.getByTestId("col-lufs").textContent).toBe("—");
+  });
+
+  test("LUFS column shows rounded integer when available", () => {
+    render(
+      <FileRow
+        file={{ ...baseFile, lufsIntegrated: -14.3 }}
+        isSelected={false}
+        onClick={() => {}}
+      />,
+    );
+    expect(screen.getByTestId("col-lufs").textContent).toBe("-14");
   });
 });

@@ -14,6 +14,11 @@ const rpc = Electroview.defineRPC<CrateRPC>({
           new CustomEvent("crate:directoryChanged", { detail: { path } }),
         );
       },
+      analysisResult: (data) => {
+        window.dispatchEvent(
+          new CustomEvent("crate:analysisResult", { detail: data }),
+        );
+      },
     },
   },
 });

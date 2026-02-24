@@ -98,11 +98,26 @@ const DDL_STATEMENTS = [
   END`,
 ] as const;
 
+// Columns added in Phase 2 that may be absent in DBs created before that migration.
+const PHASE2_MIGRATIONS = [
+  `ALTER TABLE files ADD COLUMN key_camelot TEXT`,
+  `ALTER TABLE files ADD COLUMN dynamic_range REAL`,
+  `ALTER TABLE files ADD COLUMN last_analyzed_at INTEGER`,
+];
+
 export function initSchema(db: Database): void {
   db.run("PRAGMA journal_mode = WAL");
   db.run("PRAGMA foreign_keys = ON");
   for (const sql of DDL_STATEMENTS) {
     db.run(sql);
+  }
+  // Idempotent column additions — SQLite ignores "duplicate column" errors
+  for (const sql of PHASE2_MIGRATIONS) {
+    try {
+      db.run(sql);
+    } catch {
+      // Column already exists — safe to ignore
+    }
   }
 }
 
@@ -177,7 +192,19 @@ export function createQueryHelpers(db: Database) {
   );
 
   const getFileByPathStmt = db.prepare(
-    `SELECT id, composite_id, color_tag FROM files WHERE path = ?`,
+    `SELECT id, composite_id, color_tag, bpm, key, key_camelot, lufs_integrated, lufs_peak, dynamic_range FROM files WHERE path = ?`,
+  );
+
+  const setAnalysisResultStmt = db.prepare(
+    `UPDATE files SET
+       bpm              = ?,
+       key              = ?,
+       key_camelot      = ?,
+       lufs_integrated  = ?,
+       lufs_peak        = ?,
+       dynamic_range    = ?,
+       last_analyzed_at = ?
+     WHERE composite_id = ?`,
   );
 
   const getSettingStmt = db.prepare(`SELECT value FROM settings WHERE key = ?`);
@@ -239,12 +266,31 @@ export function createQueryHelpers(db: Database) {
       setColorTagByPathStmt.run(path, color, Date.now());
     },
 
-    getFilesDataBatch(
-      paths: string[],
-    ): Map<string, { compositeId: string; colorTag: TagColor }> {
+    getFilesDataBatch(paths: string[]): Map<
+      string,
+      {
+        compositeId: string;
+        colorTag: TagColor;
+        bpm: number | null;
+        key: string | null;
+        keyCamelot: string | null;
+        lufsIntegrated: number | null;
+        lufsPeak: number | null;
+        dynamicRange: number | null;
+      }
+    > {
       const result = new Map<
         string,
-        { compositeId: string; colorTag: TagColor }
+        {
+          compositeId: string;
+          colorTag: TagColor;
+          bpm: number | null;
+          key: string | null;
+          keyCamelot: string | null;
+          lufsIntegrated: number | null;
+          lufsPeak: number | null;
+          dynamicRange: number | null;
+        }
       >();
       if (paths.length === 0) return result;
       db.transaction(() => {
@@ -253,16 +299,51 @@ export function createQueryHelpers(db: Database) {
             id: number;
             composite_id: string;
             color_tag: string | null;
+            bpm: number | null;
+            key: string | null;
+            key_camelot: string | null;
+            lufs_integrated: number | null;
+            lufs_peak: number | null;
+            dynamic_range: number | null;
           } | null;
           if (row) {
             result.set(path, {
               compositeId: row.composite_id,
               colorTag: (row.color_tag as TagColor) ?? null,
+              bpm: row.bpm,
+              key: row.key,
+              keyCamelot: row.key_camelot,
+              lufsIntegrated: row.lufs_integrated,
+              lufsPeak: row.lufs_peak,
+              dynamicRange: row.dynamic_range,
             });
           }
         }
       })();
       return result;
+    },
+
+    setAnalysisResult(
+      compositeId: string,
+      data: {
+        bpm: number | null;
+        key: string | null;
+        keyCamelot: string | null;
+        lufsIntegrated: number;
+        lufsPeak: number;
+        dynamicRange: number;
+      },
+    ): void {
+      setAnalysisResultStmt.run(
+        data.bpm,
+        data.key,
+        data.keyCamelot,
+        data.lufsIntegrated,
+        data.lufsPeak,
+        data.dynamicRange,
+        Date.now(),
+        compositeId,
+      );
     },
 
     getPinnedFolders(): string[] {

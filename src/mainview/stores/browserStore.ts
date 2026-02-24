@@ -21,6 +21,17 @@ interface BrowserState {
   setSortDir: (dir: SortDir) => void;
   setFilter: (filter: string) => void;
   setColorTag: (compositeId: string, color: TagColor) => void;
+  updateFileAnalysis: (
+    compositeId: string,
+    data: {
+      bpm: number | null;
+      key: string | null;
+      keyCamelot: string | null;
+      lufsIntegrated: number;
+      lufsPeak: number;
+      dynamicRange: number;
+    },
+  ) => void;
 }
 
 export const useBrowserStore = create<BrowserState>((set, get) => ({
@@ -59,6 +70,23 @@ export const useBrowserStore = create<BrowserState>((set, get) => ({
     set((state) => ({
       fileList: state.fileList.map((f) =>
         f.compositeId === compositeId ? { ...f, colorTag: color } : f,
+      ),
+    })),
+
+  updateFileAnalysis: (compositeId, data) =>
+    set((state) => ({
+      fileList: state.fileList.map((f) =>
+        f.compositeId === compositeId
+          ? {
+              ...f,
+              bpm: data.bpm ?? undefined,
+              key: data.key ?? undefined,
+              keyCamelot: data.keyCamelot ?? undefined,
+              lufsIntegrated: data.lufsIntegrated,
+              lufsPeak: data.lufsPeak,
+              dynamicRange: data.dynamicRange,
+            }
+          : f,
       ),
     })),
 }));

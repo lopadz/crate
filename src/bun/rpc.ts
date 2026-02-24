@@ -1,5 +1,7 @@
 import { BrowserView, Utils } from "electrobun/bun";
 import type { CrateRPC } from "../shared/types";
+import type { AnalysisError, AnalysisResult } from "./analysisQueue";
+import { AnalysisQueue } from "./analysisQueue";
 import { queries } from "./db";
 import {
   listDirs,
@@ -15,6 +17,9 @@ const watchers = new Map<string, () => void>();
 // Allows aborting an in-progress scan if the folder is unpinned.
 const scanControllers = new Map<string, AbortController>();
 
+// Singleton analysis queue — shared for the app lifetime
+const analysisQueue = new AnalysisQueue({ maxConcurrent: 2 });
+
 async function runScan(
   path: string,
   signal: AbortSignal,
@@ -28,9 +33,21 @@ async function runScan(
   if (!signal.aborted) onDone(path);
 }
 
-// createRpc accepts a callback so index.ts can forward directory-change
-// notifications to the renderer without a circular dependency.
-export function createRpc(onDirectoryChanged: (path: string) => void) {
+export type AnalysisResultCallback = (result: AnalysisResult) => void;
+
+// createRpc accepts callbacks so index.ts can forward notifications to the
+// renderer without a circular dependency.
+export function createRpc(
+  onDirectoryChanged: (path: string) => void,
+  onAnalysisResult: AnalysisResultCallback = () => {},
+) {
+  analysisQueue.on("result", (result: AnalysisResult) => {
+    queries.setAnalysisResult(result.compositeId, result);
+    onAnalysisResult(result);
+  });
+  // Swallow worker errors — individual file failures should not crash the app
+  analysisQueue.on("error", (_err: AnalysisError) => {});
+
   return BrowserView.defineRPC<CrateRPC>({
     maxRequestTime: Infinity,
     handlers: {
@@ -41,7 +58,17 @@ export function createRpc(onDirectoryChanged: (path: string) => void) {
           return files.map((f) => {
             const data = dbData.get(f.path);
             return data
-              ? { ...f, compositeId: data.compositeId, colorTag: data.colorTag }
+              ? {
+                  ...f,
+                  compositeId: data.compositeId,
+                  colorTag: data.colorTag,
+                  bpm: data.bpm ?? undefined,
+                  key: data.key ?? undefined,
+                  keyCamelot: data.keyCamelot ?? undefined,
+                  lufsIntegrated: data.lufsIntegrated ?? undefined,
+                  lufsPeak: data.lufsPeak ?? undefined,
+                  dynamicRange: data.dynamicRange ?? undefined,
+                }
               : f;
           });
         },
@@ -81,6 +108,8 @@ export function createRpc(onDirectoryChanged: (path: string) => void) {
         dbGetFileTags: ({ fileId }) => queries.getFileTags(fileId),
 
         dbGetPinnedFolders: () => queries.getPinnedFolders(),
+
+        analysisGetStatus: () => analysisQueue.getStatus(),
       },
 
       messages: {
@@ -119,6 +148,10 @@ export function createRpc(onDirectoryChanged: (path: string) => void) {
         fsStopWatch: ({ path }) => {
           watchers.get(path)?.();
           watchers.delete(path);
+        },
+
+        analysisQueueFile: ({ compositeId, path }) => {
+          analysisQueue.enqueue(compositeId, path);
         },
       },
     },

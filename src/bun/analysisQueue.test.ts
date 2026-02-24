@@ -16,19 +16,22 @@ const RESULT_PAYLOAD = {
 
 /**
  * Creates a mock WorkerLike that responds to ANALYZE messages.
- * `respond` is called with the fileId and should return the message to emit.
+ * `respond` receives the compositeId and returns the message data to emit.
  */
 function makeFactory(
-  respond: (fileId: number) => object,
+  respond: (compositeId: string) => object,
   delayMs = 0,
 ): () => WorkerLike {
   return () => {
     const worker: WorkerLike = {
       onmessage: null,
       postMessage(msg: unknown) {
-        const { fileId } = msg as { fileId: number };
+        const { compositeId } = msg as { compositeId: string };
         setTimeout(
-          () => worker.onmessage?.({ data: { ...respond(fileId), fileId } }),
+          () =>
+            worker.onmessage?.({
+              data: { ...respond(compositeId), compositeId },
+            }),
           delayMs,
         );
       },
@@ -55,8 +58,8 @@ describe("AnalysisQueue — getStatus", () => {
   test("total and pending increment on enqueue (while paused)", () => {
     const q = new AnalysisQueue({ workerFactory: okFactory });
     q.pause();
-    q.enqueue(1, "/a.wav");
-    q.enqueue(2, "/b.wav");
+    q.enqueue("cid-a", "/a.wav");
+    q.enqueue("cid-b", "/b.wav");
     expect(q.getStatus()).toEqual({ pending: 2, running: 0, total: 2 });
   });
 });
@@ -65,18 +68,18 @@ describe("AnalysisQueue — getStatus", () => {
 
 describe("AnalysisQueue — priority", () => {
   test("high priority items are processed before normal items", async () => {
-    const processedOrder: number[] = [];
+    const processedOrder: string[] = [];
 
-    const factory = makeFactory((fileId) => {
-      processedOrder.push(fileId);
+    const factory = makeFactory((compositeId) => {
+      processedOrder.push(compositeId);
       return RESULT_PAYLOAD;
     });
 
     const q = new AnalysisQueue({ maxConcurrent: 1, workerFactory: factory });
     q.pause();
-    q.enqueue(1, "/a.wav", "normal");
-    q.enqueue(2, "/b.wav", "normal");
-    q.enqueue(3, "/c.wav", "high"); // should jump to front
+    q.enqueue("cid-1", "/a.wav", "normal");
+    q.enqueue("cid-2", "/b.wav", "normal");
+    q.enqueue("cid-3", "/c.wav", "high"); // should jump to front
 
     const done = new Promise<void>((resolve) => {
       let count = 0;
@@ -88,8 +91,8 @@ describe("AnalysisQueue — priority", () => {
     q.resume();
     await done;
 
-    expect(processedOrder[0]).toBe(3); // high priority first
-    expect(processedOrder).toEqual([3, 1, 2]); // then normal in FIFO order
+    expect(processedOrder[0]).toBe("cid-3"); // high priority first
+    expect(processedOrder).toEqual(["cid-3", "cid-1", "cid-2"]); // then FIFO
   });
 });
 
@@ -97,17 +100,17 @@ describe("AnalysisQueue — priority", () => {
 
 describe("AnalysisQueue — pause / resume", () => {
   test("pause() stops new items from being processed", async () => {
-    const processed: number[] = [];
+    const processed: string[] = [];
 
-    const factory = makeFactory((fileId) => {
-      processed.push(fileId);
+    const factory = makeFactory((compositeId) => {
+      processed.push(compositeId);
       return RESULT_PAYLOAD;
     }, 10);
 
     const q = new AnalysisQueue({ maxConcurrent: 1, workerFactory: factory });
     q.pause();
-    q.enqueue(1, "/a.wav");
-    q.enqueue(2, "/b.wav");
+    q.enqueue("cid-a", "/a.wav");
+    q.enqueue("cid-b", "/b.wav");
 
     await new Promise((r) => setTimeout(r, 30));
 
@@ -116,17 +119,17 @@ describe("AnalysisQueue — pause / resume", () => {
   });
 
   test("resume() processes items that were enqueued while paused", async () => {
-    const processed: number[] = [];
+    const processed: string[] = [];
 
-    const factory = makeFactory((fileId) => {
-      processed.push(fileId);
+    const factory = makeFactory((compositeId) => {
+      processed.push(compositeId);
       return RESULT_PAYLOAD;
     });
 
     const q = new AnalysisQueue({ maxConcurrent: 1, workerFactory: factory });
     q.pause();
-    q.enqueue(1, "/a.wav");
-    q.enqueue(2, "/b.wav");
+    q.enqueue("cid-a", "/a.wav");
+    q.enqueue("cid-b", "/b.wav");
 
     const done = new Promise<void>((r) => {
       let count = 0;
@@ -150,40 +153,39 @@ describe("AnalysisQueue — events", () => {
     const resultPromise = new Promise<object>((resolve) =>
       q.once("result", resolve),
     );
-    q.enqueue(42, "/file.wav");
+    q.enqueue("cid-42", "/file.wav");
     const result = await resultPromise;
 
-    expect((result as Record<string, unknown>).fileId).toBe(42);
+    expect((result as Record<string, unknown>).compositeId).toBe("cid-42");
     expect((result as Record<string, unknown>).bpm).toBe(120);
     expect((result as Record<string, unknown>).key).toBe("Am");
   });
 
   test('emits "error" event on worker failure', async () => {
     const q = new AnalysisQueue({ workerFactory: errFactory });
-    // Suppress uncaught error
     q.on("error", () => {});
 
     const err = await new Promise<object>((resolve) => {
       q.once("error", resolve);
-      q.enqueue(99, "/broken.wav");
+      q.enqueue("cid-broken", "/broken.wav");
     });
 
-    expect((err as Record<string, unknown>).fileId).toBe(99);
+    expect((err as Record<string, unknown>).compositeId).toBe("cid-broken");
     expect((err as Record<string, unknown>).error).toBe("decode failed");
   });
 
   test("queue continues processing after a worker error", async () => {
     let callCount = 0;
 
-    const factory = makeFactory((fileId) => {
+    const factory = makeFactory((compositeId) => {
       callCount++;
       return callCount === 1
         ? { type: "ERROR", error: "fail" }
-        : { ...RESULT_PAYLOAD, fileId };
+        : { ...RESULT_PAYLOAD, compositeId };
     });
 
     const q = new AnalysisQueue({ maxConcurrent: 1, workerFactory: factory });
-    q.on("error", () => {}); // suppress throw
+    q.on("error", () => {});
 
     const events: string[] = [];
     const done = new Promise<void>((resolve) => {
@@ -201,8 +203,8 @@ describe("AnalysisQueue — events", () => {
       });
     });
 
-    q.enqueue(1, "/broken.wav");
-    q.enqueue(2, "/good.wav");
+    q.enqueue("cid-1", "/broken.wav");
+    q.enqueue("cid-2", "/good.wav");
 
     await done;
 
@@ -219,11 +221,10 @@ describe("AnalysisQueue — concurrency", () => {
     let concurrentPeak = 0;
     let concurrent = 0;
 
-    const factory = makeFactory((fileId) => {
+    const factory = makeFactory((_compositeId) => {
       concurrent++;
       if (concurrent > concurrentPeak) concurrentPeak = concurrent;
       concurrent--;
-      void fileId;
       return RESULT_PAYLOAD;
     }, 5);
 
@@ -235,10 +236,10 @@ describe("AnalysisQueue — concurrency", () => {
       });
     });
 
-    q.enqueue(1, "/a.wav");
-    q.enqueue(2, "/b.wav");
-    q.enqueue(3, "/c.wav");
-    q.enqueue(4, "/d.wav");
+    q.enqueue("cid-a", "/a.wav");
+    q.enqueue("cid-b", "/b.wav");
+    q.enqueue("cid-c", "/c.wav");
+    q.enqueue("cid-d", "/d.wav");
 
     await done;
 

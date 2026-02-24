@@ -15,8 +15,10 @@ export interface AudioFile {
   channels?: number;
   bpm?: number;
   key?: string;
+  keyCamelot?: string;
   lufsIntegrated?: number;
   lufsPeak?: number;
+  dynamicRange?: number;
   colorTag?: TagColor;
   compositeId?: string;
 }
@@ -60,6 +62,11 @@ export type CrateRPC = {
       // Database — reads
       dbGetFileTags: { params: { fileId: number }; response: Tag[] };
       dbGetPinnedFolders: { params: Record<string, never>; response: string[] };
+      // Analysis
+      analysisGetStatus: {
+        params: Record<string, never>;
+        response: { pending: number; running: number; total: number };
+      };
     };
     messages: {
       // Settings
@@ -72,6 +79,8 @@ export type CrateRPC = {
       // Filesystem watch
       fsStartWatch: { path: string };
       fsStopWatch: { path: string };
+      // Analysis
+      analysisQueueFile: { compositeId: string; path: string };
     };
   }>;
   webview: RPCSchema<{
@@ -79,6 +88,16 @@ export type CrateRPC = {
     messages: {
       // Main notifies renderer when a watched directory changes
       fsDirectoryChanged: { path: string };
+      // Main pushes analysis result when a worker finishes
+      analysisResult: {
+        compositeId: string;
+        bpm: number | null;
+        key: string | null;
+        keyCamelot: string | null;
+        lufsIntegrated: number;
+        lufsPeak: number;
+        dynamicRange: number;
+      };
     };
   }>;
 };

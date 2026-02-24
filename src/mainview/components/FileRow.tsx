@@ -70,6 +70,27 @@ export function FileRow({ file, isSelected, onClick, style }: FileRowProps) {
         {formatSize(file.size)}
       </span>
 
+      <span
+        data-testid="col-bpm"
+        className="text-gray-500 w-12 text-right shrink-0"
+      >
+        {file.bpm != null ? Math.round(file.bpm) : "—"}
+      </span>
+
+      <span
+        data-testid="col-key"
+        className="text-gray-500 w-10 text-right shrink-0"
+      >
+        {file.keyCamelot ?? "—"}
+      </span>
+
+      <span
+        data-testid="col-lufs"
+        className="text-gray-500 w-14 text-right shrink-0"
+      >
+        {file.lufsIntegrated != null ? Math.round(file.lufsIntegrated) : "—"}
+      </span>
+
       {showTagPicker && (
         <div className="absolute left-2 top-full z-10">
           <TagBadge

@@ -2,8 +2,8 @@
  * Bun Worker thread: decodes an audio file to PCM and runs analysis.
  *
  * Receives: { type: "ANALYZE", fileId: number, path: string }
- * Posts:    { type: "RESULT", fileId, bpm, key, keyCamelot, lufsIntegrated, lufsPeak, dynamicRange }
- *      or:  { type: "ERROR",  fileId, error: string }
+ * Posts:    { type: "RESULT", compositeId, bpm, key, keyCamelot, lufsIntegrated, lufsPeak, dynamicRange }
+ *      or:  { type: "ERROR",  compositeId, error: string }
  *
  * Supported formats: PCM WAV (16-bit, 24-bit, 32-bit float).
  * Non-WAV files receive null analysis values (no error).
@@ -119,7 +119,10 @@ function decodeWav(buffer: ArrayBuffer): WavData | null {
 // ─── Worker message handler ───────────────────────────────────────────────────
 
 self.onmessage = async (event: MessageEvent) => {
-  const { fileId, path } = event.data as { fileId: number; path: string };
+  const { compositeId, path } = event.data as {
+    compositeId: string;
+    path: string;
+  };
 
   try {
     const buffer = await Bun.file(path).arrayBuffer();
@@ -129,7 +132,7 @@ self.onmessage = async (event: MessageEvent) => {
       // Unsupported format — return empty analysis rather than error
       self.postMessage({
         type: "RESULT",
-        fileId,
+        compositeId,
         bpm: null,
         key: null,
         keyCamelot: null,
@@ -147,7 +150,7 @@ self.onmessage = async (event: MessageEvent) => {
 
     self.postMessage({
       type: "RESULT",
-      fileId,
+      compositeId,
       bpm,
       key: keyResult?.key ?? null,
       keyCamelot: keyResult?.camelot ?? null,
@@ -158,7 +161,7 @@ self.onmessage = async (event: MessageEvent) => {
   } catch (err) {
     self.postMessage({
       type: "ERROR",
-      fileId,
+      compositeId,
       error: err instanceof Error ? err.message : String(err),
     });
   }

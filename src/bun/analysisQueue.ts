@@ -13,7 +13,7 @@ import { EventEmitter } from "events";
 export type AnalysisPriority = "high" | "normal";
 
 export interface AnalysisResult {
-  fileId: number;
+  compositeId: string;
   bpm: number | null;
   key: string | null;
   keyCamelot: string | null;
@@ -23,7 +23,7 @@ export interface AnalysisResult {
 }
 
 export interface AnalysisError {
-  fileId: number;
+  compositeId: string;
   error: string;
 }
 
@@ -42,7 +42,7 @@ export interface WorkerLike {
 export type WorkerFactory = () => WorkerLike;
 
 interface QueueItem {
-  fileId: number;
+  compositeId: string;
   path: string;
 }
 
@@ -72,11 +72,11 @@ export class AnalysisQueue extends EventEmitter {
   }
 
   enqueue(
-    fileId: number,
+    compositeId: string,
     path: string,
     priority: AnalysisPriority = "normal",
   ): void {
-    const item: QueueItem = { fileId, path };
+    const item: QueueItem = { compositeId, path };
     if (priority === "high") {
       this.items.unshift(item);
     } else {
