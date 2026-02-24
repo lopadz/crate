@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { AudioFile, TagColor } from "../../shared/types";
 
-type SortKey = "name" | "size" | "duration";
+type SortKey = "name" | "size" | "duration" | "rating";
 type SortDir = "asc" | "desc";
 
 interface SessionFilter {
@@ -28,6 +28,7 @@ interface BrowserState {
   setFilter: (filter: string) => void;
   setSessionFilter: (filter: SessionFilter) => void;
   setColorTag: (compositeId: string, color: TagColor) => void;
+  setRating: (compositeId: string, value: number) => void;
   updateFileAnalysis: (
     compositeId: string,
     data: {
@@ -80,6 +81,15 @@ export const useBrowserStore = create<BrowserState>((set, get) => ({
     set((state) => ({
       fileList: state.fileList.map((f) =>
         f.compositeId === compositeId ? { ...f, colorTag: color } : f,
+      ),
+    })),
+
+  setRating: (compositeId, value) =>
+    set((state) => ({
+      fileList: state.fileList.map((f) =>
+        f.compositeId === compositeId
+          ? { ...f, rating: value === 0 ? undefined : value }
+          : f,
       ),
     })),
 

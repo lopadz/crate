@@ -284,6 +284,19 @@ export function createQueryHelpers(db: Database) {
      LIMIT ?`,
   );
 
+  const getRatingStmt = db.prepare(
+    `SELECT value FROM ratings WHERE composite_id = ?`,
+  );
+
+  const setRatingStmt = db.prepare(
+    `INSERT INTO ratings (composite_id, value, updated_at) VALUES (?, ?, ?)
+     ON CONFLICT(composite_id) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+  );
+
+  const deleteRatingStmt = db.prepare(
+    `DELETE FROM ratings WHERE composite_id = ?`,
+  );
+
   const upsertFileStmt = db.prepare(
     `INSERT INTO files (path, composite_id, duration, format, sample_rate, key, bpm, lufs_integrated, lufs_peak, last_seen_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -565,6 +578,19 @@ export function createQueryHelpers(db: Database) {
         path: string;
       }>;
       return rows.map((r) => ({ path: r.path, compositeId: r.composite_id }));
+    },
+
+    getRating(compositeId: string): number | null {
+      const row = getRatingStmt.get(compositeId) as { value: number } | null;
+      return row?.value ?? null;
+    },
+
+    setRating(compositeId: string, value: number): void {
+      if (value === 0) {
+        deleteRatingStmt.run(compositeId);
+      } else {
+        setRatingStmt.run(compositeId, value, Date.now());
+      }
     },
 
     upsertFile(params: {

@@ -21,6 +21,7 @@ export interface AudioFile {
   dynamicRange?: number;
   colorTag?: TagColor;
   compositeId?: string;
+  rating?: number;
 }
 
 export interface AudioMetadata {
@@ -98,6 +99,8 @@ export type CrateRPC = {
       };
       // Notes
       dbGetNote: { params: { compositeId: string }; response: string | null };
+      // Ratings
+      dbGetRating: { params: { compositeId: string }; response: number | null };
       // Play history
       dbGetPlayHistory: { params: { limit: number }; response: AudioFile[] };
       // Collections
@@ -136,6 +139,8 @@ export type CrateRPC = {
       analysisQueueFile: { compositeId: string; path: string };
       // Notes
       dbSetNote: { compositeId: string; content: string };
+      // Ratings
+      dbSetRating: { compositeId: string; value: number };
       // Collections
       collectionDelete: { collectionId: number };
       collectionAddFile: { collectionId: number; compositeId: string };

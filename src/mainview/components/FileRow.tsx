@@ -7,6 +7,43 @@ import { useBrowserStore } from "../stores/browserStore";
 import { formatDuration, formatSize } from "../utils/format";
 import { TagBadge } from "./TagBadge";
 
+function StarRating({
+  compositeId,
+  rating,
+}: {
+  compositeId: string;
+  rating: number | undefined;
+}) {
+  const setRating = useBrowserStore((s) => s.setRating);
+
+  const handleStar = (e: React.MouseEvent, value: number) => {
+    e.stopPropagation();
+    const newValue = rating === value ? 0 : value;
+    setRating(compositeId, newValue);
+    rpcClient?.send.dbSetRating({ compositeId, value: newValue });
+  };
+
+  return (
+    <span className="flex gap-0.5 shrink-0">
+      {[1, 2, 3, 4, 5].map((n) => {
+        const filled = (rating ?? 0) >= n;
+        return (
+          <button
+            key={n}
+            type="button"
+            data-testid={`star-${n}`}
+            data-filled={String(filled)}
+            className={`text-xs leading-none ${filled ? "text-yellow-400" : "text-gray-600"}`}
+            onClick={(e) => handleStar(e, n)}
+          >
+            ★
+          </button>
+        );
+      })}
+    </span>
+  );
+}
+
 const TAG_COLORS: Record<NonNullable<TagColor>, string> = {
   green: "bg-green-500",
   yellow: "bg-yellow-400",
@@ -117,6 +154,10 @@ export function FileRow({ file, isSelected, onClick, style }: FileRowProps) {
               ? Math.round(file.lufsIntegrated)
               : "—"}
           </span>
+
+          {file.compositeId && (
+            <StarRating compositeId={file.compositeId} rating={file.rating} />
+          )}
         </>
       )}
 

@@ -606,3 +606,33 @@ describe("getPlayHistory", () => {
     expect(history[0].compositeId).toBe("ph-cid-2");
   });
 });
+
+// ─── Ratings ──────────────────────────────────────────────────────────────────
+
+describe("ratings", () => {
+  let db: ReturnType<typeof makeDb>;
+  let q: ReturnType<typeof createQueryHelpers>;
+
+  beforeEach(() => {
+    db = makeDb();
+    q = createQueryHelpers(db);
+    db.run(
+      `INSERT INTO files (path, composite_id, last_seen_at) VALUES ('/test/a.wav', 'rat-cid-1', 0)`,
+    );
+  });
+
+  test("getRating returns null when no rating exists", () => {
+    expect(q.getRating("rat-cid-1")).toBeNull();
+  });
+
+  test("setRating persists; getRating returns the value", () => {
+    q.setRating("rat-cid-1", 5);
+    expect(q.getRating("rat-cid-1")).toBe(5);
+  });
+
+  test("setRating overwrites previous rating", () => {
+    q.setRating("rat-cid-1", 3);
+    q.setRating("rat-cid-1", 1);
+    expect(q.getRating("rat-cid-1")).toBe(1);
+  });
+});

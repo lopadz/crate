@@ -151,3 +151,24 @@ describe("browserStore — color tagging", () => {
     expect(useBrowserStore.getState().fileList[0].colorTag).toBeNull();
   });
 });
+
+describe("browserStore — setRating", () => {
+  test("setRating updates the rating for a matching file", () => {
+    useBrowserStore.setState({
+      ...useBrowserStore.getState(),
+      fileList: [file("a.wav", "cid-a"), file("b.wav", "cid-b")],
+    });
+    useBrowserStore.getState().setRating("cid-a", 5);
+    expect(useBrowserStore.getState().fileList[0].rating).toBe(5);
+    expect(useBrowserStore.getState().fileList[1].rating).toBeUndefined();
+  });
+
+  test("setRating with value 0 clears rating to undefined", () => {
+    useBrowserStore.setState({
+      ...useBrowserStore.getState(),
+      fileList: [{ ...file("a.wav", "cid-a"), rating: 4 }],
+    });
+    useBrowserStore.getState().setRating("cid-a", 0);
+    expect(useBrowserStore.getState().fileList[0].rating).toBeUndefined();
+  });
+});

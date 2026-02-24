@@ -3,8 +3,9 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import type { AudioFile } from "../../shared/types";
 
-const { mockDbSetColorTag } = vi.hoisted(() => ({
+const { mockDbSetColorTag, mockDbSetRating } = vi.hoisted(() => ({
   mockDbSetColorTag: vi.fn(),
+  mockDbSetRating: vi.fn(),
 }));
 
 vi.mock("../rpc", () => ({
@@ -12,7 +13,7 @@ vi.mock("../rpc", () => ({
     request: {
       dawCreateDragCopy: vi.fn().mockResolvedValue("/tmp/drag/kick.wav"),
     },
-    send: { dbSetColorTag: mockDbSetColorTag },
+    send: { dbSetColorTag: mockDbSetColorTag, dbSetRating: mockDbSetRating },
   },
 }));
 
@@ -313,5 +314,59 @@ describe("FileRow — scanning indicator", () => {
     render(<FileRow file={baseFile} isSelected={false} onClick={onClick} />);
     await userEvent.click(screen.getByTestId("file-row"));
     expect(onClick).not.toHaveBeenCalled();
+  });
+});
+
+describe("FileRow — star rating", () => {
+  test("renders 5 star buttons", () => {
+    render(<FileRow file={baseFile} isSelected={false} onClick={() => {}} />);
+    expect(screen.getAllByTestId(/^star-\d$/).length).toBe(5);
+  });
+
+  test("file with no rating shows all stars empty", () => {
+    render(<FileRow file={baseFile} isSelected={false} onClick={() => {}} />);
+    for (let i = 1; i <= 5; i++) {
+      expect(screen.getByTestId(`star-${i}`).dataset.filled).toBe("false");
+    }
+  });
+
+  test("file with rating 3 shows 3 filled stars and 2 empty", () => {
+    render(
+      <FileRow
+        file={{ ...baseFile, rating: 3 }}
+        isSelected={false}
+        onClick={() => {}}
+      />,
+    );
+    for (let i = 1; i <= 3; i++) {
+      expect(screen.getByTestId(`star-${i}`).dataset.filled).toBe("true");
+    }
+    for (let i = 4; i <= 5; i++) {
+      expect(screen.getByTestId(`star-${i}`).dataset.filled).toBe("false");
+    }
+  });
+
+  test("clicking star 4 calls dbSetRating with value 4", async () => {
+    render(<FileRow file={baseFile} isSelected={false} onClick={() => {}} />);
+    await userEvent.click(screen.getByTestId("star-4"));
+    expect(mockDbSetRating).toHaveBeenCalledWith({
+      compositeId: baseFile.compositeId,
+      value: 4,
+    });
+  });
+
+  test("clicking the same star again clears the rating (toggle to 0)", async () => {
+    render(
+      <FileRow
+        file={{ ...baseFile, rating: 4 }}
+        isSelected={false}
+        onClick={() => {}}
+      />,
+    );
+    await userEvent.click(screen.getByTestId("star-4"));
+    expect(mockDbSetRating).toHaveBeenCalledWith({
+      compositeId: baseFile.compositeId,
+      value: 0,
+    });
   });
 });

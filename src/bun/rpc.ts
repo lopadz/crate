@@ -138,6 +138,8 @@ export function createRpc(
 
         dbGetNote: ({ compositeId }) => queries.getNote(compositeId),
 
+        dbGetRating: ({ compositeId }) => queries.getRating(compositeId),
+
         dbGetPlayHistory: ({ limit }) => {
           const results = queries.getPlayHistory(limit);
           return results.map((r) => ({
@@ -207,6 +209,9 @@ export function createRpc(
 
         dbSetNote: ({ compositeId, content }) =>
           queries.setNote(compositeId, content),
+
+        dbSetRating: ({ compositeId, value }) =>
+          queries.setRating(compositeId, value),
 
         fsStartWatch: ({ path }) => {
           if (watchers.has(path)) return;
