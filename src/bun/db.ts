@@ -182,6 +182,27 @@ export function createQueryHelpers(db: Database) {
     `DELETE FROM file_tags WHERE tag_id = ?`,
   );
 
+  // Syncs the tags_text column in files_fts after addFileTag / removeFileTag
+  const updateFtsTagsStmt = db.prepare(
+    `UPDATE files_fts
+     SET tags_text = (
+       SELECT COALESCE(GROUP_CONCAT(t.name, ' '), '')
+       FROM tags t
+       JOIN file_tags ft ON ft.tag_id = t.id
+       JOIN files f ON f.id = ft.file_id
+       WHERE f.composite_id = ?
+     )
+     WHERE composite_id = ?`,
+  );
+
+  const searchFilesStmt = db.prepare(
+    `SELECT f.path, f.composite_id
+     FROM files_fts
+     JOIN files f ON f.composite_id = files_fts.composite_id
+     WHERE files_fts MATCH ?
+     ORDER BY rank`,
+  );
+
   const createCollectionStmt = db.prepare(
     `INSERT INTO collections (name, color, query_json, created_at) VALUES (?, ?, ?, ?)
      RETURNING id, name, color, query_json`,
@@ -371,10 +392,28 @@ export function createQueryHelpers(db: Database) {
 
     addFileTag(compositeId: string, tagId: number): void {
       addFileTagStmt.run(compositeId, tagId, Date.now());
+      updateFtsTagsStmt.run(compositeId, compositeId);
     },
 
     removeFileTag(compositeId: string, tagId: number): void {
       removeFileTagStmt.run(compositeId, tagId);
+      updateFtsTagsStmt.run(compositeId, compositeId);
+    },
+
+    searchFiles(query: string): Array<{ path: string; compositeId: string }> {
+      // Append * to each term for prefix matching (e.g. "dar" matches "dark")
+      const ftsQuery = query
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((t) => `${t}*`)
+        .join(" ");
+      if (!ftsQuery) return [];
+      const rows = searchFilesStmt.all(ftsQuery) as Array<{
+        path: string;
+        composite_id: string;
+      }>;
+      return rows.map((r) => ({ path: r.path, compositeId: r.composite_id }));
     },
 
     setColorTag(fileId: number, color: TagColor): void {

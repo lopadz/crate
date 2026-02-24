@@ -7,6 +7,7 @@ import {
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useBrowserStore } from "../stores/browserStore";
 import { FileRow } from "./FileRow";
+import { SearchBar } from "./SearchBar";
 import { SessionFilter, getCompatibleKeys } from "./SessionFilter";
 
 const ROW_HEIGHT = 36;
@@ -77,47 +78,43 @@ export function FileList() {
     );
   }
 
-  if (fileList.length === 0) {
-    return (
-      <div
-        data-testid="file-list"
-        className="h-full flex items-center justify-center text-gray-600 text-sm"
-      >
-        No audio files in this folder
-      </div>
-    );
-  }
-
   const virtualizer = virtualizerRef.current;
   const virtualItems = virtualizer.getVirtualItems();
 
   return (
     <div data-testid="file-list" className="h-full flex flex-col">
+      <SearchBar />
       <SessionFilter />
-      <div ref={scrollRef} className="flex-1 overflow-y-auto">
-        <div
-          style={{ height: virtualizer.getTotalSize(), position: "relative" }}
-        >
-          {virtualItems.map((item) => {
-            const file = filteredFiles[item.index];
-            const originalIndex = fileList.indexOf(file);
-            return (
-              <FileRow
-                key={item.key}
-                file={file}
-                isSelected={originalIndex === selectedIndex}
-                style={{
-                  position: "absolute",
-                  top: item.start,
-                  width: "100%",
-                  height: item.size,
-                }}
-                onClick={() => setSelectedIndex(originalIndex)}
-              />
-            );
-          })}
+      {fileList.length === 0 ? (
+        <div className="flex-1 flex items-center justify-center text-gray-600 text-sm">
+          No audio files in this folder
         </div>
-      </div>
+      ) : (
+        <div ref={scrollRef} className="flex-1 overflow-y-auto">
+          <div
+            style={{ height: virtualizer.getTotalSize(), position: "relative" }}
+          >
+            {virtualItems.map((item) => {
+              const file = filteredFiles[item.index];
+              const originalIndex = fileList.indexOf(file);
+              return (
+                <FileRow
+                  key={item.key}
+                  file={file}
+                  isSelected={originalIndex === selectedIndex}
+                  style={{
+                    position: "absolute",
+                    top: item.start,
+                    width: "100%",
+                    height: item.size,
+                  }}
+                  onClick={() => setSelectedIndex(originalIndex)}
+                />
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

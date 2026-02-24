@@ -86,6 +86,11 @@ export type CrateRPC = {
         };
         response: string; // absolute path to the temp copy
       };
+      // Full-text search
+      dbSearchFiles: {
+        params: { query: string };
+        response: AudioFile[];
+      };
       // Analysis
       analysisGetStatus: {
         params: Record<string, never>;

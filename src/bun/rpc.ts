@@ -123,6 +123,19 @@ export function createRpc(
         dawCreateDragCopy: ({ path, pattern, bpm, key, keyCamelot }) =>
           createDragCopy({ filePath: path, pattern, bpm, key, keyCamelot }),
 
+        dbSearchFiles: ({ query }) => {
+          const results = queries.searchFiles(query);
+          return results.map((r) => ({
+            path: r.path,
+            name: r.path.split("/").pop() ?? r.path,
+            extension: r.path.includes(".")
+              ? `.${r.path.split(".").pop()}`
+              : "",
+            size: 0,
+            compositeId: r.compositeId,
+          }));
+        },
+
         analysisGetStatus: () => analysisQueue.getStatus(),
 
         collectionGetAll: () => queries.getCollections(),

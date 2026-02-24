@@ -56,7 +56,7 @@ describe("initSchema", () => {
 
   test("files_fts_after_insert trigger populates FTS index when a file is inserted", () => {
     const db = makeDb();
-    db.exec(
+    db.run(
       `INSERT INTO files (path, composite_id, last_seen_at) VALUES ('/test/dark_loop.wav', 'cid-123', 0)`,
     );
     const rows = db
@@ -109,7 +109,7 @@ describe("setColorTagByCompositeId", () => {
   beforeEach(() => {
     const db = makeDb();
     q = createQueryHelpers(db);
-    db.exec(
+    db.run(
       `INSERT INTO files (path, composite_id, last_seen_at) VALUES ('/test/kick.wav', 'cid-abc123', 0)`,
     );
   });
@@ -146,7 +146,7 @@ describe("color tag CRUD", () => {
   beforeEach(() => {
     const db = makeDb();
     q = createQueryHelpers(db);
-    db.exec(
+    db.run(
       `INSERT INTO files (path, composite_id, last_seen_at) VALUES ('/test/kick.wav', 'abc123', 0)`,
     );
   });
@@ -344,9 +344,9 @@ describe("getAllTags", () => {
     const db = makeDb();
     const q2 = createQueryHelpers(db);
     // Insert with explicit sort_order
-    db.exec(`INSERT INTO tags (name, sort_order) VALUES ('z-tag', 10)`);
-    db.exec(`INSERT INTO tags (name, sort_order) VALUES ('a-tag', 1)`);
-    db.exec(`INSERT INTO tags (name, sort_order) VALUES ('m-tag', 5)`);
+    db.run(`INSERT INTO tags (name, sort_order) VALUES ('z-tag', 10)`);
+    db.run(`INSERT INTO tags (name, sort_order) VALUES ('a-tag', 1)`);
+    db.run(`INSERT INTO tags (name, sort_order) VALUES ('m-tag', 5)`);
     const names = q2.getAllTags().map((t) => t.name);
     expect(names).toEqual(["a-tag", "m-tag", "z-tag"]);
   });
@@ -358,7 +358,7 @@ describe("deleteTag", () => {
   beforeEach(() => {
     const db = makeDb();
     q = createQueryHelpers(db);
-    db.exec(
+    db.run(
       `INSERT INTO files (path, composite_id, last_seen_at) VALUES ('/test/kick.wav', 'cid-1', 0)`,
     );
   });
@@ -387,7 +387,7 @@ describe("addFileTag / removeFileTag / getFileTagsByCompositeId", () => {
   beforeEach(() => {
     const db = makeDb();
     q = createQueryHelpers(db);
-    db.exec(
+    db.run(
       `INSERT INTO files (path, composite_id, last_seen_at) VALUES ('/test/kick.wav', 'cid-1', 0)`,
     );
   });
@@ -425,5 +425,60 @@ describe("addFileTag / removeFileTag / getFileTagsByCompositeId", () => {
   test("removeFileTag for non-existent assignment does not throw", () => {
     const tag = q.createTag("loop", null);
     expect(() => q.removeFileTag("cid-1", tag.id)).not.toThrow();
+  });
+});
+
+// ─── searchFiles ──────────────────────────────────────────────────────────────
+
+describe("searchFiles", () => {
+  let db: Database;
+  let q: ReturnType<typeof createQueryHelpers>;
+
+  beforeEach(() => {
+    db = makeDb();
+    q = createQueryHelpers(db);
+  });
+
+  test("returns file whose path matches the query token", () => {
+    db.run(
+      `INSERT INTO files (path, composite_id, last_seen_at) VALUES ('/test/dark_loop_01.wav', 'cid-1', 0)`,
+    );
+    const results = q.searchFiles("dark");
+    expect(results.some((r) => r.compositeId === "cid-1")).toBe(true);
+  });
+
+  test("returns file matching an assigned tag name", () => {
+    db.run(
+      `INSERT INTO files (path, composite_id, last_seen_at) VALUES ('/test/kick.wav', 'cid-2', 0)`,
+    );
+    const tag = q.createTag("groovy", null);
+    q.addFileTag("cid-2", tag.id);
+    const results = q.searchFiles("groovy");
+    expect(results.some((r) => r.compositeId === "cid-2")).toBe(true);
+  });
+
+  test("does not return file after its tag is removed", () => {
+    db.run(
+      `INSERT INTO files (path, composite_id, last_seen_at) VALUES ('/test/snare.wav', 'cid-3', 0)`,
+    );
+    const tag = q.createTag("deep", null);
+    q.addFileTag("cid-3", tag.id);
+    q.removeFileTag("cid-3", tag.id);
+    const results = q.searchFiles("deep");
+    expect(results.some((r) => r.compositeId === "cid-3")).toBe(false);
+  });
+
+  test("returns empty array when no files match", () => {
+    expect(q.searchFiles("zzznomatch")).toHaveLength(0);
+  });
+
+  test("result includes path and compositeId", () => {
+    db.run(
+      `INSERT INTO files (path, composite_id, last_seen_at) VALUES ('/test/hat.wav', 'cid-4', 0)`,
+    );
+    const results = q.searchFiles("hat");
+    const match = results.find((r) => r.compositeId === "cid-4");
+    expect(match).toBeDefined();
+    expect(match?.path).toBe("/test/hat.wav");
   });
 });
