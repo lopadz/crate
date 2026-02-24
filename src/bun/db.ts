@@ -203,6 +203,19 @@ export function createQueryHelpers(db: Database) {
      ORDER BY rank`,
   );
 
+  const getNoteStmt = db.prepare(
+    `SELECT content FROM notes WHERE composite_id = ?`,
+  );
+
+  const setNoteStmt = db.prepare(
+    `INSERT INTO notes (composite_id, content, updated_at) VALUES (?, ?, ?)
+     ON CONFLICT(composite_id) DO UPDATE SET content = excluded.content, updated_at = excluded.updated_at`,
+  );
+
+  const updateFtsNotesStmt = db.prepare(
+    `UPDATE files_fts SET notes_text = ? WHERE composite_id = ?`,
+  );
+
   const createCollectionStmt = db.prepare(
     `INSERT INTO collections (name, color, query_json, created_at) VALUES (?, ?, ?, ?)
      RETURNING id, name, color, query_json`,
@@ -398,6 +411,16 @@ export function createQueryHelpers(db: Database) {
     removeFileTag(compositeId: string, tagId: number): void {
       removeFileTagStmt.run(compositeId, tagId);
       updateFtsTagsStmt.run(compositeId, compositeId);
+    },
+
+    getNote(compositeId: string): string | null {
+      const row = getNoteStmt.get(compositeId) as { content: string } | null;
+      return row?.content ?? null;
+    },
+
+    setNote(compositeId: string, content: string): void {
+      setNoteStmt.run(compositeId, content, Date.now());
+      updateFtsNotesStmt.run(content, compositeId);
     },
 
     searchFiles(query: string): Array<{ path: string; compositeId: string }> {

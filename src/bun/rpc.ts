@@ -136,6 +136,8 @@ export function createRpc(
           }));
         },
 
+        dbGetNote: ({ compositeId }) => queries.getNote(compositeId),
+
         analysisGetStatus: () => analysisQueue.getStatus(),
 
         collectionGetAll: () => queries.getCollections(),
@@ -189,6 +191,9 @@ export function createRpc(
 
         dbRemoveFileTag: ({ compositeId, tagId }) =>
           queries.removeFileTag(compositeId, tagId),
+
+        dbSetNote: ({ compositeId, content }) =>
+          queries.setNote(compositeId, content),
 
         fsStartWatch: ({ path }) => {
           if (watchers.has(path)) return;

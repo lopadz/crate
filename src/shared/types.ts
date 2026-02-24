@@ -96,6 +96,8 @@ export type CrateRPC = {
         params: Record<string, never>;
         response: { pending: number; running: number; total: number };
       };
+      // Notes
+      dbGetNote: { params: { compositeId: string }; response: string | null };
       // Collections
       collectionGetAll: {
         params: Record<string, never>;
@@ -130,6 +132,8 @@ export type CrateRPC = {
       fsStopWatch: { path: string };
       // Analysis
       analysisQueueFile: { compositeId: string; path: string };
+      // Notes
+      dbSetNote: { compositeId: string; content: string };
       // Collections
       collectionDelete: { collectionId: number };
       collectionAddFile: { collectionId: number; compositeId: string };

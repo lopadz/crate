@@ -482,3 +482,49 @@ describe("searchFiles", () => {
     expect(match?.path).toBe("/test/hat.wav");
   });
 });
+
+// ─── Notes ───────────────────────────────────────────────────────────────────
+
+describe("notes", () => {
+  let db: ReturnType<typeof makeDb>;
+  let q: ReturnType<typeof createQueryHelpers>;
+
+  beforeEach(() => {
+    db = makeDb();
+    q = createQueryHelpers(db);
+    db.run(
+      `INSERT INTO files (path, composite_id, last_seen_at) VALUES ('/test/loop.wav', 'note-cid-1', 0)`,
+    );
+  });
+
+  test("getNote returns null when no note exists", () => {
+    expect(q.getNote("note-cid-1")).toBeNull();
+  });
+
+  test("setNote persists note content", () => {
+    q.setNote("note-cid-1", "This is a great kick drum");
+    expect(q.getNote("note-cid-1")).toBe("This is a great kick drum");
+  });
+
+  test("setNote overwrites previous note", () => {
+    q.setNote("note-cid-1", "First note");
+    q.setNote("note-cid-1", "Updated note");
+    expect(q.getNote("note-cid-1")).toBe("Updated note");
+  });
+
+  test("setNote syncs notes_text into files_fts", () => {
+    q.setNote("note-cid-1", "dark atmospheric texture");
+    const rows = db
+      .query(
+        `SELECT notes_text FROM files_fts WHERE composite_id = 'note-cid-1'`,
+      )
+      .all() as Array<{ notes_text: string }>;
+    expect(rows[0]?.notes_text).toBe("dark atmospheric texture");
+  });
+
+  test("searchFiles matches text added via setNote", () => {
+    q.setNote("note-cid-1", "cinematic riser");
+    const results = q.searchFiles("cinematic");
+    expect(results.some((r) => r.compositeId === "note-cid-1")).toBe(true);
+  });
+});

@@ -6,6 +6,7 @@ vi.mock("../rpc", () => ({
     request: {
       dbGetAllTags: vi.fn().mockResolvedValue([]),
       dbGetFileTags: vi.fn().mockResolvedValue([]),
+      dbGetNote: vi.fn().mockResolvedValue(null),
     },
     send: {},
   },

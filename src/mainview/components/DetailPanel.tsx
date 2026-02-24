@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { Tag } from "../../shared/types";
 import { rpcClient } from "../rpc";
 import { useBrowserStore } from "../stores/browserStore";
+import { NoteEditor } from "./NoteEditor";
 import { TagEditor } from "./TagEditor";
 import { Waveform } from "./Waveform";
 
@@ -37,11 +38,14 @@ export function DetailPanel() {
       </div>
       <Waveform />
       {selectedFile?.compositeId && (
-        <TagEditor
-          compositeId={selectedFile.compositeId}
-          initialTags={fileTags}
-          allTags={allTags}
-        />
+        <>
+          <TagEditor
+            compositeId={selectedFile.compositeId}
+            initialTags={fileTags}
+            allTags={allTags}
+          />
+          <NoteEditor compositeId={selectedFile.compositeId} />
+        </>
       )}
     </div>
   );
