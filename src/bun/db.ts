@@ -1,7 +1,8 @@
 import { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
-import type { Tag, TagColor } from "../shared/types";
+import type { Collection, Tag, TagColor } from "../shared/types";
+import { buildCollectionQuery } from "./collections";
 
 const DB_DIR = join(
   process.env.HOME ?? "/tmp",
@@ -179,6 +180,37 @@ export function createQueryHelpers(db: Database) {
 
   const deleteFileTagsByTagIdStmt = db.prepare(
     `DELETE FROM file_tags WHERE tag_id = ?`,
+  );
+
+  const createCollectionStmt = db.prepare(
+    `INSERT INTO collections (name, color, query_json, created_at) VALUES (?, ?, ?, ?)
+     RETURNING id, name, color, query_json`,
+  );
+
+  const getCollectionsStmt = db.prepare(
+    `SELECT id, name, color, query_json FROM collections ORDER BY id ASC`,
+  );
+
+  const getCollectionByIdStmt = db.prepare(
+    `SELECT id, name, color, query_json FROM collections WHERE id = ?`,
+  );
+
+  const deleteCollectionStmt = db.prepare(
+    `DELETE FROM collections WHERE id = ?`,
+  );
+
+  const addToCollectionStmt = db.prepare(
+    `INSERT OR IGNORE INTO collection_files (collection_id, composite_id, added_at) VALUES (?, ?, ?)`,
+  );
+
+  const removeFromCollectionStmt = db.prepare(
+    `DELETE FROM collection_files WHERE collection_id = ? AND composite_id = ?`,
+  );
+
+  const getManualCollectionFilesStmt = db.prepare(
+    `SELECT f.path, f.composite_id FROM files f
+     JOIN collection_files cf ON cf.composite_id = f.composite_id
+     WHERE cf.collection_id = ?`,
   );
 
   const setColorTagStmt = db.prepare(
@@ -504,6 +536,87 @@ export function createQueryHelpers(db: Database) {
       files: Array<{ path: string; extension: string }>,
     ): void {
       upsertFilesFromScanTx(files);
+    },
+
+    createCollection(
+      name: string,
+      color: string | null,
+      queryJson: string | null,
+    ): Collection {
+      const row = createCollectionStmt.get(
+        name,
+        color,
+        queryJson,
+        Date.now(),
+      ) as {
+        id: number;
+        name: string;
+        color: string | null;
+        query_json: string | null;
+      };
+      return {
+        id: row.id,
+        name: row.name,
+        color: row.color,
+        queryJson: row.query_json,
+      };
+    },
+
+    getCollections(): Collection[] {
+      const rows = getCollectionsStmt.all() as Array<{
+        id: number;
+        name: string;
+        color: string | null;
+        query_json: string | null;
+      }>;
+      return rows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        color: r.color,
+        queryJson: r.query_json,
+      }));
+    },
+
+    deleteCollection(id: number): void {
+      deleteCollectionStmt.run(id);
+    },
+
+    addToCollection(collectionId: number, compositeId: string): void {
+      addToCollectionStmt.run(collectionId, compositeId, Date.now());
+    },
+
+    removeFromCollection(collectionId: number, compositeId: string): void {
+      removeFromCollectionStmt.run(collectionId, compositeId);
+    },
+
+    getCollectionFiles(
+      collectionId: number,
+    ): Array<{ path: string; compositeId: string }> {
+      const collection = getCollectionByIdStmt.get(collectionId) as {
+        id: number;
+        query_json: string | null;
+      } | null;
+      if (!collection) return [];
+
+      if (collection.query_json !== null) {
+        // Smart collection — run the dynamic query
+        const { sql, params } = buildCollectionQuery(collection.query_json);
+        const rows = db
+          .prepare(sql)
+          // biome-ignore lint/suspicious/noExplicitAny: dynamic params from buildCollectionQuery
+          .all(...(params as any[])) as Array<{
+          path: string;
+          composite_id: string;
+        }>;
+        return rows.map((r) => ({ path: r.path, compositeId: r.composite_id }));
+      }
+
+      // Manual collection — use the junction table
+      const rows = getManualCollectionFilesStmt.all(collectionId) as Array<{
+        path: string;
+        composite_id: string;
+      }>;
+      return rows.map((r) => ({ path: r.path, compositeId: r.composite_id }));
     },
   };
 }

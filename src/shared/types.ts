@@ -38,6 +38,13 @@ export interface Tag {
   sortOrder: number;
 }
 
+export interface Collection {
+  id: number;
+  name: string;
+  color: string | null;
+  queryJson: string | null;
+}
+
 // ─── Electrobun typed RPC schema ─────────────────────────────────────────────
 //
 // Bun side  → handles requests/messages FROM the renderer
@@ -72,6 +79,23 @@ export type CrateRPC = {
         params: Record<string, never>;
         response: { pending: number; running: number; total: number };
       };
+      // Collections
+      collectionGetAll: {
+        params: Record<string, never>;
+        response: Collection[];
+      };
+      collectionCreate: {
+        params: {
+          name: string;
+          color: string | null;
+          queryJson: string | null;
+        };
+        response: Collection;
+      };
+      collectionGetFiles: {
+        params: { collectionId: number };
+        response: AudioFile[];
+      };
     };
     messages: {
       // Settings
@@ -89,6 +113,10 @@ export type CrateRPC = {
       fsStopWatch: { path: string };
       // Analysis
       analysisQueueFile: { compositeId: string; path: string };
+      // Collections
+      collectionDelete: { collectionId: number };
+      collectionAddFile: { collectionId: number; compositeId: string };
+      collectionRemoveFile: { collectionId: number; compositeId: string };
     };
   }>;
   webview: RPCSchema<{

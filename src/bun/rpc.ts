@@ -115,6 +115,24 @@ export function createRpc(
         dbCreateTag: ({ name, color }) => queries.createTag(name, color),
 
         analysisGetStatus: () => analysisQueue.getStatus(),
+
+        collectionGetAll: () => queries.getCollections(),
+
+        collectionCreate: ({ name, color, queryJson }) =>
+          queries.createCollection(name, color, queryJson),
+
+        collectionGetFiles: ({ collectionId }) => {
+          const files = queries.getCollectionFiles(collectionId);
+          return files.map((f) => ({
+            path: f.path,
+            name: f.path.split("/").pop() ?? f.path,
+            extension: f.path.includes(".")
+              ? `.${f.path.split(".").pop()}`
+              : "",
+            size: 0,
+            compositeId: f.compositeId,
+          }));
+        },
       },
 
       messages: {
@@ -166,6 +184,15 @@ export function createRpc(
         analysisQueueFile: ({ compositeId, path }) => {
           analysisQueue.enqueue(compositeId, path);
         },
+
+        collectionDelete: ({ collectionId }) =>
+          queries.deleteCollection(collectionId),
+
+        collectionAddFile: ({ collectionId, compositeId }) =>
+          queries.addToCollection(collectionId, compositeId),
+
+        collectionRemoveFile: ({ collectionId, compositeId }) =>
+          queries.removeFromCollection(collectionId, compositeId),
       },
     },
   });
