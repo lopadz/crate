@@ -60,8 +60,13 @@ export type CrateRPC = {
       // Settings
       settingsGet: { params: { key: string }; response: string | null };
       // Database — reads
-      dbGetFileTags: { params: { fileId: number }; response: Tag[] };
+      dbGetFileTags: { params: { compositeId: string }; response: Tag[] };
+      dbGetAllTags: { params: Record<string, never>; response: Tag[] };
       dbGetPinnedFolders: { params: Record<string, never>; response: string[] };
+      dbCreateTag: {
+        params: { name: string; color: string | null };
+        response: Tag;
+      };
       // Analysis
       analysisGetStatus: {
         params: Record<string, never>;
@@ -76,6 +81,9 @@ export type CrateRPC = {
       dbPinFolder: { path: string };
       dbUnpinFolder: { path: string };
       dbRecordPlay: { compositeId: string };
+      dbDeleteTag: { tagId: number };
+      dbAddFileTag: { compositeId: string; tagId: number };
+      dbRemoveFileTag: { compositeId: string; tagId: number };
       // Filesystem watch
       fsStartWatch: { path: string };
       fsStopWatch: { path: string };

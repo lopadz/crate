@@ -105,9 +105,14 @@ export function createRpc(
 
         settingsGet: ({ key }) => queries.getSetting(key),
 
-        dbGetFileTags: ({ fileId }) => queries.getFileTags(fileId),
+        dbGetFileTags: ({ compositeId }) =>
+          queries.getFileTagsByCompositeId(compositeId),
+
+        dbGetAllTags: () => queries.getAllTags(),
 
         dbGetPinnedFolders: () => queries.getPinnedFolders(),
+
+        dbCreateTag: ({ name, color }) => queries.createTag(name, color),
 
         analysisGetStatus: () => analysisQueue.getStatus(),
       },
@@ -136,6 +141,14 @@ export function createRpc(
         },
 
         dbRecordPlay: ({ compositeId }) => queries.recordPlay(compositeId),
+
+        dbDeleteTag: ({ tagId }) => queries.deleteTag(tagId),
+
+        dbAddFileTag: ({ compositeId, tagId }) =>
+          queries.addFileTag(compositeId, tagId),
+
+        dbRemoveFileTag: ({ compositeId, tagId }) =>
+          queries.removeFileTag(compositeId, tagId),
 
         fsStartWatch: ({ path }) => {
           if (watchers.has(path)) return;

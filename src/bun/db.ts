@@ -148,6 +148,39 @@ export function createQueryHelpers(db: Database) {
      WHERE ft.file_id = ?`,
   );
 
+  const getFileTagsByCompositeIdStmt = db.prepare(
+    `SELECT t.id, t.name, t.color, t.sort_order
+     FROM tags t
+     JOIN file_tags ft ON ft.tag_id = t.id
+     WHERE ft.file_id = (SELECT id FROM files WHERE composite_id = ?)`,
+  );
+
+  const getAllTagsStmt = db.prepare(
+    `SELECT id, name, color, sort_order FROM tags ORDER BY sort_order ASC`,
+  );
+
+  const createTagStmt = db.prepare(
+    `INSERT INTO tags (name, color, sort_order, created_at) VALUES (?, ?, 0, ?)
+     RETURNING id, name, color, sort_order`,
+  );
+
+  const deleteTagStmt = db.prepare(`DELETE FROM tags WHERE id = ?`);
+
+  const addFileTagStmt = db.prepare(
+    `INSERT OR IGNORE INTO file_tags (file_id, tag_id, created_at)
+     VALUES ((SELECT id FROM files WHERE composite_id = ?), ?, ?)`,
+  );
+
+  const removeFileTagStmt = db.prepare(
+    `DELETE FROM file_tags
+     WHERE file_id = (SELECT id FROM files WHERE composite_id = ?)
+       AND tag_id = ?`,
+  );
+
+  const deleteFileTagsByTagIdStmt = db.prepare(
+    `DELETE FROM file_tags WHERE tag_id = ?`,
+  );
+
   const setColorTagStmt = db.prepare(
     `UPDATE files SET color_tag = ? WHERE id = ?`,
   );
@@ -252,6 +285,64 @@ export function createQueryHelpers(db: Database) {
         color: r.color,
         sortOrder: r.sort_order,
       }));
+    },
+
+    getFileTagsByCompositeId(compositeId: string): Tag[] {
+      const rows = getFileTagsByCompositeIdStmt.all(compositeId) as Array<{
+        id: number;
+        name: string;
+        color: string | null;
+        sort_order: number;
+      }>;
+      return rows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        color: r.color,
+        sortOrder: r.sort_order,
+      }));
+    },
+
+    getAllTags(): Tag[] {
+      const rows = getAllTagsStmt.all() as Array<{
+        id: number;
+        name: string;
+        color: string | null;
+        sort_order: number;
+      }>;
+      return rows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        color: r.color,
+        sortOrder: r.sort_order,
+      }));
+    },
+
+    createTag(name: string, color: string | null): Tag {
+      const row = createTagStmt.get(name, color, Date.now()) as {
+        id: number;
+        name: string;
+        color: string | null;
+        sort_order: number;
+      };
+      return {
+        id: row.id,
+        name: row.name,
+        color: row.color,
+        sortOrder: row.sort_order,
+      };
+    },
+
+    deleteTag(tagId: number): void {
+      deleteFileTagsByTagIdStmt.run(tagId);
+      deleteTagStmt.run(tagId);
+    },
+
+    addFileTag(compositeId: string, tagId: number): void {
+      addFileTagStmt.run(compositeId, tagId, Date.now());
+    },
+
+    removeFileTag(compositeId: string, tagId: number): void {
+      removeFileTagStmt.run(compositeId, tagId);
     },
 
     setColorTag(fileId: number, color: TagColor): void {

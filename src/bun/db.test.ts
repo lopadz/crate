@@ -290,3 +290,140 @@ describe("upsertFilesFromScan", () => {
     expect(() => q.upsertFilesFromScan([])).not.toThrow();
   });
 });
+
+// ─── Rich tag system ──────────────────────────────────────────────────────────
+
+describe("createTag", () => {
+  let q: ReturnType<typeof createQueryHelpers>;
+
+  beforeEach(() => {
+    q = createQueryHelpers(makeDb());
+  });
+
+  test("returns a Tag with id, name, color, sortOrder", () => {
+    const tag = q.createTag("kick", "#ff0000");
+    expect(tag.id).toBeGreaterThan(0);
+    expect(tag.name).toBe("kick");
+    expect(tag.color).toBe("#ff0000");
+    expect(tag.sortOrder).toBe(0);
+  });
+
+  test("accepts null color", () => {
+    const tag = q.createTag("unlabeled", null);
+    expect(tag.color).toBeNull();
+  });
+
+  test("each tag gets a unique id", () => {
+    const t1 = q.createTag("drums", null);
+    const t2 = q.createTag("synths", null);
+    expect(t1.id).not.toBe(t2.id);
+  });
+});
+
+describe("getAllTags", () => {
+  let q: ReturnType<typeof createQueryHelpers>;
+
+  beforeEach(() => {
+    q = createQueryHelpers(makeDb());
+  });
+
+  test("returns empty array when no tags exist", () => {
+    expect(q.getAllTags()).toEqual([]);
+  });
+
+  test("returns all created tags", () => {
+    q.createTag("drums", "#f00");
+    q.createTag("bass", "#00f");
+    const tags = q.getAllTags();
+    expect(tags).toHaveLength(2);
+    expect(tags.map((t) => t.name)).toContain("drums");
+    expect(tags.map((t) => t.name)).toContain("bass");
+  });
+
+  test("tags are sorted by sort_order ascending", () => {
+    const db = makeDb();
+    const q2 = createQueryHelpers(db);
+    // Insert with explicit sort_order
+    db.exec(`INSERT INTO tags (name, sort_order) VALUES ('z-tag', 10)`);
+    db.exec(`INSERT INTO tags (name, sort_order) VALUES ('a-tag', 1)`);
+    db.exec(`INSERT INTO tags (name, sort_order) VALUES ('m-tag', 5)`);
+    const names = q2.getAllTags().map((t) => t.name);
+    expect(names).toEqual(["a-tag", "m-tag", "z-tag"]);
+  });
+});
+
+describe("deleteTag", () => {
+  let q: ReturnType<typeof createQueryHelpers>;
+
+  beforeEach(() => {
+    const db = makeDb();
+    q = createQueryHelpers(db);
+    db.exec(
+      `INSERT INTO files (path, composite_id, last_seen_at) VALUES ('/test/kick.wav', 'cid-1', 0)`,
+    );
+  });
+
+  test("removes tag from getAllTags", () => {
+    const tag = q.createTag("kick", null);
+    q.deleteTag(tag.id);
+    expect(q.getAllTags()).toHaveLength(0);
+  });
+
+  test("cascades: file no longer has the deleted tag", () => {
+    const tag = q.createTag("kick", null);
+    q.addFileTag("cid-1", tag.id);
+    q.deleteTag(tag.id);
+    expect(q.getFileTagsByCompositeId("cid-1")).toHaveLength(0);
+  });
+
+  test("no-ops when tag id does not exist", () => {
+    expect(() => q.deleteTag(9999)).not.toThrow();
+  });
+});
+
+describe("addFileTag / removeFileTag / getFileTagsByCompositeId", () => {
+  let q: ReturnType<typeof createQueryHelpers>;
+
+  beforeEach(() => {
+    const db = makeDb();
+    q = createQueryHelpers(db);
+    db.exec(
+      `INSERT INTO files (path, composite_id, last_seen_at) VALUES ('/test/kick.wav', 'cid-1', 0)`,
+    );
+  });
+
+  test("addFileTag → getFileTagsByCompositeId returns the tag", () => {
+    const tag = q.createTag("loop", "#0f0");
+    q.addFileTag("cid-1", tag.id);
+    const tags = q.getFileTagsByCompositeId("cid-1");
+    expect(tags).toHaveLength(1);
+    expect(tags[0].name).toBe("loop");
+  });
+
+  test("removeFileTag → tag no longer in list", () => {
+    const tag = q.createTag("loop", null);
+    q.addFileTag("cid-1", tag.id);
+    q.removeFileTag("cid-1", tag.id);
+    expect(q.getFileTagsByCompositeId("cid-1")).toHaveLength(0);
+  });
+
+  test("addFileTag is idempotent (no error on duplicate)", () => {
+    const tag = q.createTag("loop", null);
+    q.addFileTag("cid-1", tag.id);
+    expect(() => q.addFileTag("cid-1", tag.id)).not.toThrow();
+    expect(q.getFileTagsByCompositeId("cid-1")).toHaveLength(1);
+  });
+
+  test("multiple tags can be assigned to one file", () => {
+    const t1 = q.createTag("drums", null);
+    const t2 = q.createTag("bass", null);
+    q.addFileTag("cid-1", t1.id);
+    q.addFileTag("cid-1", t2.id);
+    expect(q.getFileTagsByCompositeId("cid-1")).toHaveLength(2);
+  });
+
+  test("removeFileTag for non-existent assignment does not throw", () => {
+    const tag = q.createTag("loop", null);
+    expect(() => q.removeFileTag("cid-1", tag.id)).not.toThrow();
+  });
+});
