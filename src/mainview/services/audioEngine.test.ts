@@ -1,44 +1,17 @@
-import { vi, describe, test, expect, beforeEach, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { AudioFile } from "../../shared/types";
 
-// ── Mediabunny mock ───────────────────────────────────────────────────────────
+// ── RPC mock ──────────────────────────────────────────────────────────────────
 
-vi.mock("mediabunny", () => {
-  const buf = {
-    length: 44100,
-    numberOfChannels: 2,
-    sampleRate: 44100,
-    duration: 1.0,
-    getChannelData: () => new Float32Array(44100),
-  } as unknown as AudioBuffer;
+const { mockFsReadAudio } = vi.hoisted(() => ({
+  mockFsReadAudio: vi.fn().mockResolvedValue("dGVzdA=="), // base64 "test"
+}));
 
-  return {
-    ALL_FORMATS: [],
-    UrlSource: vi.fn().mockImplementation(function () {}),
-    Input: vi.fn().mockImplementation(function () {
-      return {
-        getPrimaryAudioTrack: vi.fn().mockResolvedValue({}),
-        dispose: vi.fn(),
-      };
-    }),
-    AudioBufferSink: vi.fn().mockImplementation(function () {
-      return {
-        buffers: async function* () {
-          yield { buffer: buf, timestamp: 0, duration: 1.0 };
-        },
-      };
-    }),
-  };
-});
-
-// Expose mockAudioBuffer from the mock for assertions
-const mockAudioBuffer = {
-  length: 44100,
-  numberOfChannels: 2,
-  sampleRate: 44100,
-  duration: 1.0,
-  getChannelData: () => new Float32Array(44100),
-} as unknown as AudioBuffer;
+vi.mock("../rpc", () => ({
+  rpcClient: {
+    request: { fsReadAudio: mockFsReadAudio },
+  },
+}));
 
 // ── Web Audio mock ────────────────────────────────────────────────────────────
 
@@ -49,6 +22,7 @@ const mockDisconnect = vi.fn();
 
 const makeSourceNode = () => ({
   buffer: null as AudioBuffer | null,
+  loop: false,
   connect: mockConnect,
   start: mockStart,
   stop: mockStop,
@@ -60,6 +34,15 @@ const mockGainConnect = vi.fn();
 const mockGainNode = { connect: mockGainConnect, gain: { value: 1.0 } };
 const mockCreateGain = vi.fn().mockReturnValue(mockGainNode);
 
+const mockAudioBuffer = {
+  length: 44100,
+  numberOfChannels: 2,
+  sampleRate: 44100,
+  duration: 1.0,
+  getChannelData: () => new Float32Array(44100),
+} as unknown as AudioBuffer;
+
+const mockDecodeAudioData = vi.fn().mockResolvedValue(mockAudioBuffer);
 const mockCreateBufferSource = vi.fn().mockImplementation(makeSourceNode);
 const mockClose = vi.fn().mockResolvedValue(undefined);
 const mockCreateBuffer = vi.fn().mockReturnValue(mockAudioBuffer);
@@ -68,6 +51,7 @@ class MockAudioContext {
   createBufferSource = mockCreateBufferSource;
   createBuffer = mockCreateBuffer;
   createGain = mockCreateGain;
+  decodeAudioData = mockDecodeAudioData;
   destination = {};
   currentTime = 0;
   state = "running";
@@ -77,16 +61,30 @@ vi.stubGlobal("AudioContext", MockAudioContext);
 
 // ── Imports (after mocks) ─────────────────────────────────────────────────────
 
-import { AudioEngine } from "./audioEngine";
 import { usePlaybackStore } from "../stores/playbackStore";
 import { useSettingsStore } from "../stores/settingsStore";
-import { Input } from "mediabunny";
+import { AudioEngine } from "./audioEngine";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const file: AudioFile = { path: "/S/kick.wav", name: "kick.wav", extension: ".wav", size: 1000 };
-const prev: AudioFile = { path: "/S/prev.wav", name: "prev.wav", extension: ".wav", size: 500 };
-const next: AudioFile = { path: "/S/next.wav", name: "next.wav", extension: ".wav", size: 500 };
+const file: AudioFile = {
+  path: "/S/kick.wav",
+  name: "kick.wav",
+  extension: ".wav",
+  size: 1000,
+};
+const prev: AudioFile = {
+  path: "/S/prev.wav",
+  name: "prev.wav",
+  extension: ".wav",
+  size: 500,
+};
+const next: AudioFile = {
+  path: "/S/next.wav",
+  name: "next.wav",
+  extension: ".wav",
+  size: 500,
+};
 
 const resetStores = () => {
   usePlaybackStore.setState({
@@ -114,6 +112,8 @@ describe("AudioEngine", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockFsReadAudio.mockResolvedValue("dGVzdA==");
+    mockDecodeAudioData.mockResolvedValue(mockAudioBuffer);
     resetStores();
     engine = new AudioEngine();
   });
@@ -122,9 +122,14 @@ describe("AudioEngine", () => {
     engine.dispose();
   });
 
-  test("play() decodes the file via mediabunny Input", async () => {
+  test("play() reads the file via fsReadAudio RPC", async () => {
     await engine.play(file);
-    expect(Input).toHaveBeenCalledOnce();
+    expect(mockFsReadAudio).toHaveBeenCalledWith({ path: file.path });
+  });
+
+  test("play() decodes the audio data via decodeAudioData", async () => {
+    await engine.play(file);
+    expect(mockDecodeAudioData).toHaveBeenCalledOnce();
   });
 
   test("play() starts an AudioBufferSourceNode", async () => {
@@ -164,18 +169,18 @@ describe("AudioEngine", () => {
     expect(mockCreateBufferSource).toHaveBeenCalledTimes(2);
   });
 
-  test("playing the same file twice uses the cached buffer (Input called once)", async () => {
+  test("playing the same file twice uses the cached buffer (fsReadAudio called once)", async () => {
     await engine.play(file);
     await engine.play(file);
-    expect(Input).toHaveBeenCalledOnce();
+    expect(mockFsReadAudio).toHaveBeenCalledOnce();
   });
 
   test("play() with neighbors preloads them in the background", async () => {
     await engine.play(file, [prev, next]);
     // flush microtask queue so the background preloads run
     await new Promise((r) => setTimeout(r, 20));
-    // Input called: 1 for main + 2 for neighbors
-    expect(Input).toHaveBeenCalledTimes(3);
+    // fsReadAudio called: 1 for main + 2 for neighbors
+    expect(mockFsReadAudio).toHaveBeenCalledTimes(3);
   });
 });
 
@@ -184,6 +189,8 @@ describe("AudioEngine — volume normalization", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockFsReadAudio.mockResolvedValue("dGVzdA==");
+    mockDecodeAudioData.mockResolvedValue(mockAudioBuffer);
     resetStores();
     engine = new AudioEngine();
   });
@@ -193,7 +200,10 @@ describe("AudioEngine — volume normalization", () => {
   });
 
   test("play() creates a GainNode when normalizeVolume is true", async () => {
-    useSettingsStore.setState({ ...useSettingsStore.getState(), normalizeVolume: true });
+    useSettingsStore.setState({
+      ...useSettingsStore.getState(),
+      normalizeVolume: true,
+    });
     await engine.play(file);
     expect(mockCreateGain).toHaveBeenCalledOnce();
   });
@@ -204,7 +214,10 @@ describe("AudioEngine — volume normalization", () => {
   });
 
   test("source connects through GainNode to destination when normalizing", async () => {
-    useSettingsStore.setState({ ...useSettingsStore.getState(), normalizeVolume: true });
+    useSettingsStore.setState({
+      ...useSettingsStore.getState(),
+      normalizeVolume: true,
+    });
     await engine.play(file);
     // source.connect called with gainNode, gainNode.connect called with destination
     expect(mockConnect).toHaveBeenCalledWith(mockGainNode);
@@ -215,5 +228,78 @@ describe("AudioEngine — volume normalization", () => {
     await engine.play(file);
     // source.connect called directly with ctx.destination (not gainNode)
     expect(mockConnect).not.toHaveBeenCalledWith(mockGainNode);
+  });
+});
+
+describe("AudioEngine — loop and pause", () => {
+  let engine: AudioEngine;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockFsReadAudio.mockResolvedValue("dGVzdA==");
+    mockDecodeAudioData.mockResolvedValue(mockAudioBuffer);
+    resetStores();
+    engine = new AudioEngine();
+  });
+
+  afterEach(() => {
+    engine.dispose();
+  });
+
+  test("setLoop(true) sets loop=true on the active source node", async () => {
+    await engine.play(file);
+    const source = mockCreateBufferSource.mock.results[0].value as ReturnType<
+      typeof makeSourceNode
+    >;
+    engine.setLoop(true);
+    expect(source.loop).toBe(true);
+  });
+
+  test("setLoop(false) sets loop=false on the active source node", async () => {
+    await engine.play(file);
+    const source = mockCreateBufferSource.mock.results[0].value as ReturnType<
+      typeof makeSourceNode
+    >;
+    engine.setLoop(true);
+    engine.setLoop(false);
+    expect(source.loop).toBe(false);
+  });
+
+  test("setLoop is a no-op when no source is active", () => {
+    expect(() => engine.setLoop(true)).not.toThrow();
+  });
+
+  test("play() applies loop=true when playbackStore.loop is true", async () => {
+    usePlaybackStore.setState({ ...usePlaybackStore.getState(), loop: true });
+    await engine.play(file);
+    const source = mockCreateBufferSource.mock.results[0].value as ReturnType<
+      typeof makeSourceNode
+    >;
+    expect(source.loop).toBe(true);
+  });
+
+  test("play() applies loop=false when playbackStore.loop is false", async () => {
+    usePlaybackStore.setState({ ...usePlaybackStore.getState(), loop: false });
+    await engine.play(file);
+    const source = mockCreateBufferSource.mock.results[0].value as ReturnType<
+      typeof makeSourceNode
+    >;
+    expect(source.loop).toBe(false);
+  });
+
+  test("pause() sets isPlaying to false", async () => {
+    await engine.play(file);
+    engine.pause();
+    expect(usePlaybackStore.getState().isPlaying).toBe(false);
+  });
+
+  test("pause() stops the source node", async () => {
+    await engine.play(file);
+    engine.pause();
+    expect(mockStop).toHaveBeenCalledOnce();
+  });
+
+  test("pause() without active playback does not throw", () => {
+    expect(() => engine.pause()).not.toThrow();
   });
 });

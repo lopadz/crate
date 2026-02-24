@@ -64,6 +64,7 @@ export type CrateRPC = {
         params: { path: string };
         response: AudioMetadata | null;
       };
+      fsReadAudio: { params: { path: string }; response: string }; // base64-encoded bytes
       // Settings
       settingsGet: { params: { key: string }; response: string | null };
       // Database — reads

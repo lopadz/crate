@@ -63,7 +63,7 @@ export function useKeyboardNav(): void {
             if (currentFile && isMidi(currentFile)) midiEngine.stop();
             else audioEngine.stop();
           } else {
-            const file = currentFile ?? fileList[selectedIndex];
+            const file = fileList[selectedIndex] ?? currentFile;
             if (file) {
               if (isMidi(file)) midiEngine.play(file);
               else
@@ -81,7 +81,7 @@ export function useKeyboardNav(): void {
 
         case "ArrowRight": {
           e.preventDefault();
-          const file = currentFile ?? fileList[selectedIndex];
+          const file = fileList[selectedIndex] ?? currentFile;
           if (file) {
             audioEngine.seek(0);
             audioEngine.play(file, getNeighbors(fileList, selectedIndex));

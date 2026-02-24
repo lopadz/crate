@@ -130,6 +130,22 @@ describe("useKeyboardNav", () => {
     expect(mockPlay).toHaveBeenCalledWith(files[1], expect.any(Array));
   });
 
+  test("Space plays the selected file, not currentFile, when selection has changed", () => {
+    // currentFile is files[0] but user has navigated to files[2]
+    usePlaybackStore.setState({
+      ...usePlaybackStore.getState(),
+      currentFile: files[0],
+      isPlaying: false,
+    });
+    useBrowserStore.setState({
+      ...useBrowserStore.getState(),
+      selectedIndex: 2,
+    });
+    renderHook(() => useKeyboardNav());
+    press(" ");
+    expect(mockPlay).toHaveBeenCalledWith(files[2], expect.any(Array));
+  });
+
   test("Space while playing calls audioEngine.stop()", () => {
     usePlaybackStore.setState({
       ...usePlaybackStore.getState(),

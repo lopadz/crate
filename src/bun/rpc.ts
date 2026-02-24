@@ -86,6 +86,11 @@ export function createRpc(
           return (paths ?? []).filter((p) => p.length > 0);
         },
 
+        fsReadAudio: async ({ path }) => {
+          const buf = await Bun.file(path).arrayBuffer();
+          return Buffer.from(buf).toString("base64");
+        },
+
         fsGetMetadata: ({ path }) => {
           const file = queries.getFileByPath(path);
           if (!file) return null;

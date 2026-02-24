@@ -1,5 +1,5 @@
-import { Input, UrlSource, AudioBufferSink, ALL_FORMATS } from "mediabunny";
 import type { AudioFile } from "../../shared/types";
+import { rpcClient } from "../rpc";
 import { usePlaybackStore } from "../stores/playbackStore";
 import { useSettingsStore } from "../stores/settingsStore";
 
@@ -22,24 +22,6 @@ function computeGain(buffer: AudioBuffer, targetLufsDb: number): number {
   return Math.pow(10, gainDb / 20);
 }
 
-function mergeChunks(ctx: AudioContext, chunks: AudioBuffer[]): AudioBuffer {
-  if (chunks.length === 0) return ctx.createBuffer(1, 1, 44100);
-  if (chunks.length === 1) return chunks[0];
-
-  const { numberOfChannels, sampleRate } = chunks[0];
-  const totalLength = chunks.reduce((sum, c) => sum + c.length, 0);
-  const merged = ctx.createBuffer(numberOfChannels, totalLength, sampleRate);
-
-  let offset = 0;
-  for (const chunk of chunks) {
-    for (let ch = 0; ch < numberOfChannels; ch++) {
-      merged.getChannelData(ch).set(chunk.getChannelData(ch), offset);
-    }
-    offset += chunk.length;
-  }
-  return merged;
-}
-
 export class AudioEngine {
   private ctx: AudioContext | null = null;
   private source: AudioBufferSourceNode | null = null;
@@ -57,22 +39,11 @@ export class AudioEngine {
     if (cached) return cached;
 
     const ctx = this.getCtx();
-    const input = new Input({
-      source: new UrlSource(`file://${file.path}`),
-      formats: ALL_FORMATS,
-    });
+    const base64 = await rpcClient?.request.fsReadAudio({ path: file.path });
+    if (!base64) throw new Error(`Failed to read audio: ${file.path}`);
 
-    const audioTrack = await input.getPrimaryAudioTrack();
-    if (!audioTrack) throw new Error(`No audio track: ${file.path}`);
-
-    const sink = new AudioBufferSink(audioTrack);
-    const chunks: AudioBuffer[] = [];
-    for await (const wrapped of sink.buffers()) {
-      chunks.push(wrapped.buffer);
-    }
-    input.dispose();
-
-    const buffer = mergeChunks(ctx, chunks);
+    const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+    const buffer = await ctx.decodeAudioData(bytes.buffer);
 
     // Evict oldest entry if cache is full
     if (this.cache.size >= CACHE_MAX) {
@@ -93,7 +64,8 @@ export class AudioEngine {
     const source = ctx.createBufferSource();
     source.buffer = buffer;
 
-    const { normalizeVolume, normalizationTargetLufs } = useSettingsStore.getState();
+    const { normalizeVolume, normalizationTargetLufs } =
+      useSettingsStore.getState();
     if (normalizeVolume) {
       const gainNode = ctx.createGain();
       gainNode.gain.value = computeGain(buffer, normalizationTargetLufs);
@@ -103,6 +75,8 @@ export class AudioEngine {
       source.connect(ctx.destination);
     }
 
+    source.loop = usePlaybackStore.getState().loop;
+    if (ctx.state === "suspended") await ctx.resume();
     source.start(0, this.pauseOffset);
     this.startedAt = ctx.currentTime - this.pauseOffset;
     this.pauseOffset = 0;
@@ -133,6 +107,27 @@ export class AudioEngine {
     }
     this.pauseOffset = 0;
     usePlaybackStore.getState().setIsPlaying(false);
+  }
+
+  pause(): void {
+    if (!this.source) return;
+    const ctx = this.getCtx();
+    const elapsed = ctx.currentTime - this.startedAt;
+    this.pauseOffset = elapsed;
+    try {
+      this.source.stop();
+    } catch {
+      // Ignore if already stopped
+    }
+    this.source.disconnect();
+    this.source = null;
+    usePlaybackStore.getState().setIsPlaying(false);
+  }
+
+  setLoop(enabled: boolean): void {
+    if (this.source) {
+      this.source.loop = enabled;
+    }
   }
 
   seek(position: number): void {
