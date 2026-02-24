@@ -1,6 +1,32 @@
+import { useEffect, useState } from "react";
+import type { Tag } from "../../shared/types";
+import { rpcClient } from "../rpc";
+import { useBrowserStore } from "../stores/browserStore";
+import { TagEditor } from "./TagEditor";
 import { Waveform } from "./Waveform";
 
 export function DetailPanel() {
+  const fileList = useBrowserStore((s) => s.fileList);
+  const selectedIndex = useBrowserStore((s) => s.selectedIndex);
+  const selectedFile = selectedIndex >= 0 ? fileList[selectedIndex] : undefined;
+
+  const [fileTags, setFileTags] = useState<Tag[]>([]);
+  const [allTags, setAllTags] = useState<Tag[]>([]);
+
+  useEffect(() => {
+    if (!selectedFile?.compositeId) {
+      setFileTags([]);
+      return;
+    }
+    void rpcClient?.request
+      .dbGetFileTags({ compositeId: selectedFile.compositeId })
+      .then(setFileTags);
+  }, [selectedFile?.compositeId]);
+
+  useEffect(() => {
+    void rpcClient?.request.dbGetAllTags({}).then(setAllTags);
+  }, []);
+
   return (
     <div
       data-testid="detail-panel"
@@ -10,7 +36,13 @@ export function DetailPanel() {
         Detail
       </div>
       <Waveform />
-      {/* Tag editor mounts here in Commit 12 */}
+      {selectedFile?.compositeId && (
+        <TagEditor
+          compositeId={selectedFile.compositeId}
+          initialTags={fileTags}
+          allTags={allTags}
+        />
+      )}
     </div>
   );
 }
