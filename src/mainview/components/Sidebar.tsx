@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useCollectionStore } from "../stores/collectionStore";
 import { FolderTree } from "./FolderTree";
+import { PlayHistory } from "./PlayHistory";
 import { SmartCollectionEditor } from "./SmartCollectionEditor";
 
 export function Sidebar() {
@@ -26,6 +27,13 @@ export function Sidebar() {
         Folders
       </div>
       <FolderTree />
+
+      <div data-testid="recent-section" className="mt-2">
+        <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-gray-600">
+          Recent
+        </div>
+        <PlayHistory />
+      </div>
 
       <div data-testid="collections-section" className="mt-2">
         <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-gray-600">

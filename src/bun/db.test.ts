@@ -528,3 +528,81 @@ describe("notes", () => {
     expect(results.some((r) => r.compositeId === "note-cid-1")).toBe(true);
   });
 });
+
+// ─── Play History ─────────────────────────────────────────────────────────────
+
+describe("getPlayHistory", () => {
+  let db: ReturnType<typeof makeDb>;
+  let q: ReturnType<typeof createQueryHelpers>;
+
+  beforeEach(() => {
+    db = makeDb();
+    q = createQueryHelpers(db);
+    db.run(
+      `INSERT INTO files (path, composite_id, last_seen_at) VALUES ('/test/a.wav', 'ph-cid-1', 0)`,
+    );
+    db.run(
+      `INSERT INTO files (path, composite_id, last_seen_at) VALUES ('/test/b.wav', 'ph-cid-2', 0)`,
+    );
+    db.run(
+      `INSERT INTO files (path, composite_id, last_seen_at) VALUES ('/test/c.wav', 'ph-cid-3', 0)`,
+    );
+  });
+
+  test("returns empty array when nothing has been played", () => {
+    expect(q.getPlayHistory(10)).toHaveLength(0);
+  });
+
+  test("returns played files ordered by most recent first", () => {
+    db.run(
+      `INSERT INTO play_history (composite_id, played_at) VALUES ('ph-cid-1', 100)`,
+    );
+    db.run(
+      `INSERT INTO play_history (composite_id, played_at) VALUES ('ph-cid-2', 200)`,
+    );
+    db.run(
+      `INSERT INTO play_history (composite_id, played_at) VALUES ('ph-cid-3', 300)`,
+    );
+    const history = q.getPlayHistory(10);
+    expect(history[0].compositeId).toBe("ph-cid-3");
+    expect(history[1].compositeId).toBe("ph-cid-2");
+    expect(history[2].compositeId).toBe("ph-cid-1");
+  });
+
+  test("deduplicates repeated plays — only latest occurrence per file", () => {
+    // Insert with explicit timestamps to avoid Date.now() collisions in fast tests
+    db.run(
+      `INSERT INTO play_history (composite_id, played_at) VALUES ('ph-cid-1', 100)`,
+    );
+    db.run(
+      `INSERT INTO play_history (composite_id, played_at) VALUES ('ph-cid-2', 200)`,
+    );
+    db.run(
+      `INSERT INTO play_history (composite_id, played_at) VALUES ('ph-cid-1', 300)`,
+    );
+    const history = q.getPlayHistory(10);
+    const ids = history.map((h) => h.compositeId);
+    expect(ids.filter((id) => id === "ph-cid-1")).toHaveLength(1);
+    expect(ids[0]).toBe("ph-cid-1"); // most recent (last_played = 300)
+  });
+
+  test("respects limit", () => {
+    db.run(
+      `INSERT INTO play_history (composite_id, played_at) VALUES ('ph-cid-1', 100)`,
+    );
+    db.run(
+      `INSERT INTO play_history (composite_id, played_at) VALUES ('ph-cid-2', 200)`,
+    );
+    db.run(
+      `INSERT INTO play_history (composite_id, played_at) VALUES ('ph-cid-3', 300)`,
+    );
+    expect(q.getPlayHistory(2)).toHaveLength(2);
+  });
+
+  test("result includes path and compositeId", () => {
+    q.recordPlay("ph-cid-2");
+    const history = q.getPlayHistory(10);
+    expect(history[0].path).toBe("/test/b.wav");
+    expect(history[0].compositeId).toBe("ph-cid-2");
+  });
+});

@@ -275,6 +275,15 @@ export function createQueryHelpers(db: Database) {
     `INSERT INTO play_history (composite_id, played_at) VALUES (?, ?)`,
   );
 
+  const getPlayHistoryStmt = db.prepare(
+    `SELECT ph.composite_id, f.path, MAX(ph.played_at) AS last_played
+     FROM play_history ph
+     JOIN files f ON f.composite_id = ph.composite_id
+     GROUP BY ph.composite_id
+     ORDER BY last_played DESC
+     LIMIT ?`,
+  );
+
   const upsertFileStmt = db.prepare(
     `INSERT INTO files (path, composite_id, duration, format, sample_rate, key, bpm, lufs_integrated, lufs_peak, last_seen_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -546,6 +555,16 @@ export function createQueryHelpers(db: Database) {
 
     recordPlay(compositeId: string): void {
       recordPlayStmt.run(compositeId, Date.now());
+    },
+
+    getPlayHistory(
+      limit: number,
+    ): Array<{ path: string; compositeId: string }> {
+      const rows = getPlayHistoryStmt.all(limit) as Array<{
+        composite_id: string;
+        path: string;
+      }>;
+      return rows.map((r) => ({ path: r.path, compositeId: r.composite_id }));
     },
 
     upsertFile(params: {

@@ -9,6 +9,7 @@ vi.mock("../rpc", () => ({
     request: {
       dbGetPinnedFolders: vi.fn().mockResolvedValue([]),
       collectionGetAll: vi.fn().mockResolvedValue([]),
+      dbGetPlayHistory: vi.fn().mockResolvedValue([]),
     },
     send: {},
   },

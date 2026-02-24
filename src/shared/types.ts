@@ -98,6 +98,8 @@ export type CrateRPC = {
       };
       // Notes
       dbGetNote: { params: { compositeId: string }; response: string | null };
+      // Play history
+      dbGetPlayHistory: { params: { limit: number }; response: AudioFile[] };
       // Collections
       collectionGetAll: {
         params: Record<string, never>;

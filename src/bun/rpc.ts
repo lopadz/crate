@@ -138,6 +138,19 @@ export function createRpc(
 
         dbGetNote: ({ compositeId }) => queries.getNote(compositeId),
 
+        dbGetPlayHistory: ({ limit }) => {
+          const results = queries.getPlayHistory(limit);
+          return results.map((r) => ({
+            path: r.path,
+            name: r.path.split("/").pop() ?? r.path,
+            extension: r.path.includes(".")
+              ? `.${r.path.split(".").pop()}`
+              : "",
+            size: 0,
+            compositeId: r.compositeId,
+          }));
+        },
+
         analysisGetStatus: () => analysisQueue.getStatus(),
 
         collectionGetAll: () => queries.getCollections(),
