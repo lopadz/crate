@@ -4,6 +4,11 @@ import type { AudioFile, TagColor } from "../../shared/types";
 type SortKey = "name" | "size" | "duration";
 type SortDir = "asc" | "desc";
 
+interface SessionFilter {
+  bpm: number | null;
+  key: string | null;
+}
+
 interface BrowserState {
   activeFolder: string | null;
   fileList: AudioFile[];
@@ -11,6 +16,7 @@ interface BrowserState {
   sortKey: SortKey;
   sortDir: SortDir;
   filter: string;
+  sessionFilter: SessionFilter;
 
   setActiveFolder: (path: string | null) => void;
   setFileList: (files: AudioFile[]) => void;
@@ -20,6 +26,7 @@ interface BrowserState {
   setSortKey: (key: SortKey) => void;
   setSortDir: (dir: SortDir) => void;
   setFilter: (filter: string) => void;
+  setSessionFilter: (filter: SessionFilter) => void;
   setColorTag: (compositeId: string, color: TagColor) => void;
   updateFileAnalysis: (
     compositeId: string,
@@ -41,6 +48,7 @@ export const useBrowserStore = create<BrowserState>((set, get) => ({
   sortKey: "name",
   sortDir: "asc",
   filter: "",
+  sessionFilter: { bpm: null, key: null },
 
   setActiveFolder: (path) => set({ activeFolder: path }),
 
@@ -65,6 +73,8 @@ export const useBrowserStore = create<BrowserState>((set, get) => ({
   setSortDir: (dir) => set({ sortDir: dir }),
 
   setFilter: (filter) => set({ filter }),
+
+  setSessionFilter: (filter) => set({ sessionFilter: filter }),
 
   setColorTag: (compositeId, color) =>
     set((state) => ({

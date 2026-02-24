@@ -18,6 +18,7 @@ beforeEach(() => {
     sortKey: "name",
     sortDir: "asc",
     filter: "",
+    sessionFilter: { bpm: null, key: null },
   });
 });
 
@@ -87,6 +88,32 @@ describe("browserStore — sort & filter", () => {
   test("setFilter updates filter string", () => {
     useBrowserStore.getState().setFilter("kick");
     expect(useBrowserStore.getState().filter).toBe("kick");
+  });
+});
+
+describe("browserStore — session filter", () => {
+  test("sessionFilter defaults to { bpm: null, key: null }", () => {
+    expect(useBrowserStore.getState().sessionFilter).toEqual({
+      bpm: null,
+      key: null,
+    });
+  });
+
+  test("setSessionFilter updates both fields", () => {
+    useBrowserStore.getState().setSessionFilter({ bpm: 128, key: "Am" });
+    expect(useBrowserStore.getState().sessionFilter).toEqual({
+      bpm: 128,
+      key: "Am",
+    });
+  });
+
+  test("setSessionFilter with nulls clears the filter", () => {
+    useBrowserStore.getState().setSessionFilter({ bpm: 128, key: "Am" });
+    useBrowserStore.getState().setSessionFilter({ bpm: null, key: null });
+    expect(useBrowserStore.getState().sessionFilter).toEqual({
+      bpm: null,
+      key: null,
+    });
   });
 });
 

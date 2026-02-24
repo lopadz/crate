@@ -1,6 +1,6 @@
-import { vi, describe, test, expect, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import type { AudioFile } from "../../shared/types";
 
 vi.mock("../rpc", () => ({
@@ -45,8 +45,8 @@ vi.mock("@tanstack/virtual-core", () => {
   };
 });
 
-import { FileList } from "./FileList";
 import { useBrowserStore } from "../stores/browserStore";
+import { FileList } from "./FileList";
 
 const sampleFiles: AudioFile[] = [
   { path: "/S/kick.wav", name: "kick.wav", extension: ".wav", size: 100_000 },
@@ -62,6 +62,7 @@ const resetStore = () =>
     sortKey: "name",
     sortDir: "asc",
     filter: "",
+    sessionFilter: { bpm: null, key: null },
   });
 
 beforeEach(resetStore);
@@ -78,7 +79,10 @@ describe("FileList", () => {
   });
 
   test("shows empty message when folder has no files", () => {
-    useBrowserStore.setState({ ...useBrowserStore.getState(), activeFolder: "/Samples" });
+    useBrowserStore.setState({
+      ...useBrowserStore.getState(),
+      activeFolder: "/Samples",
+    });
     render(<FileList />);
     expect(screen.getByText(/no audio files/i)).toBeDefined();
   });
@@ -116,5 +120,91 @@ describe("FileList", () => {
     const rows = screen.getAllByTestId("file-row");
     expect(rows[2].className).toContain("selected");
     expect(rows[0].className).not.toContain("selected");
+  });
+});
+
+describe("FileList — session filter", () => {
+  // a: 128 BPM, Am key   — BPM IN range, key compatible with Am
+  // b: 121 BPM, Bb key   — BPM IN range (128±7.68), key NOT compatible with Am
+  // c:  95 BPM, C  key   — BPM OUT of range, key compatible with Am (C = 8B)
+  const filesWithMetadata: AudioFile[] = [
+    {
+      path: "/S/a.wav",
+      name: "a.wav",
+      extension: ".wav",
+      size: 100,
+      compositeId: "cid-a",
+      bpm: 128,
+      key: "Am",
+    },
+    {
+      path: "/S/b.wav",
+      name: "b.wav",
+      extension: ".wav",
+      size: 100,
+      compositeId: "cid-b",
+      bpm: 121,
+      key: "Bb",
+    },
+    {
+      path: "/S/c.wav",
+      name: "c.wav",
+      extension: ".wav",
+      size: 100,
+      compositeId: "cid-c",
+      bpm: 95,
+      key: "C",
+    },
+  ];
+
+  beforeEach(() => {
+    useBrowserStore.setState({
+      ...useBrowserStore.getState(),
+      activeFolder: "/S",
+      fileList: filesWithMetadata,
+      sessionFilter: { bpm: null, key: null },
+    });
+  });
+
+  test("no filter shows all files", () => {
+    render(<FileList />);
+    expect(screen.getAllByTestId("file-row")).toHaveLength(3);
+  });
+
+  test("BPM filter ±6% shows only files in range", () => {
+    // 128 * 0.06 = 7.68 → range [120.32, 135.68] → a(128) IN, b(121) IN, c(95) OUT
+    useBrowserStore.setState({
+      ...useBrowserStore.getState(),
+      sessionFilter: { bpm: 128, key: null },
+    });
+    render(<FileList />);
+    expect(screen.getAllByTestId("file-row")).toHaveLength(2);
+    expect(screen.getByText("a.wav")).toBeDefined();
+    expect(screen.getByText("b.wav")).toBeDefined();
+  });
+
+  test("key filter shows Camelot-compatible files only", () => {
+    // Am (8A) compatible: Am, Dm, Em, C, F, G → a(Am) IN, b(Bb) OUT, c(C) IN
+    useBrowserStore.setState({
+      ...useBrowserStore.getState(),
+      sessionFilter: { bpm: null, key: "Am" },
+    });
+    render(<FileList />);
+    expect(screen.getAllByTestId("file-row")).toHaveLength(2);
+    expect(screen.getByText("a.wav")).toBeDefined();
+    expect(screen.getByText("c.wav")).toBeDefined();
+  });
+
+  test("combined BPM + key filter shows intersection", () => {
+    // BPM 128: a(128) IN, b(121) IN, c(95) OUT
+    // Key Am:  a(Am)  IN, b(Bb)  OUT, c(C)  IN
+    // Combined: only a passes both
+    useBrowserStore.setState({
+      ...useBrowserStore.getState(),
+      sessionFilter: { bpm: 128, key: "Am" },
+    });
+    render(<FileList />);
+    expect(screen.getAllByTestId("file-row")).toHaveLength(1);
+    expect(screen.getByText("a.wav")).toBeDefined();
   });
 });

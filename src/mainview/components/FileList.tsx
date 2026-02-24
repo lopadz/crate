@@ -4,9 +4,10 @@ import {
   observeElementOffset,
   observeElementRect,
 } from "@tanstack/virtual-core";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useBrowserStore } from "../stores/browserStore";
 import { FileRow } from "./FileRow";
+import { SessionFilter, getCompatibleKeys } from "./SessionFilter";
 
 const ROW_HEIGHT = 36;
 
@@ -15,6 +16,23 @@ export function FileList() {
   const fileList = useBrowserStore((s) => s.fileList);
   const selectedIndex = useBrowserStore((s) => s.selectedIndex);
   const setSelectedIndex = useBrowserStore((s) => s.setSelectedIndex);
+  const sessionFilter = useBrowserStore((s) => s.sessionFilter);
+
+  const filteredFiles = useMemo(() => {
+    let files = fileList;
+    if (sessionFilter.bpm !== null) {
+      const bpm = sessionFilter.bpm;
+      const tolerance = bpm * 0.06;
+      files = files.filter(
+        (f) => f.bpm != null && Math.abs(f.bpm - bpm) <= tolerance,
+      );
+    }
+    if (sessionFilter.key !== null) {
+      const compatible = getCompatibleKeys(sessionFilter.key);
+      files = files.filter((f) => f.key != null && compatible.includes(f.key));
+    }
+    return files;
+  }, [fileList, sessionFilter]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [, rerender] = useState(0);
@@ -25,7 +43,7 @@ export function FileList() {
   > | null>(null);
   if (!virtualizerRef.current) {
     virtualizerRef.current = new Virtualizer({
-      count: fileList.length,
+      count: filteredFiles.length,
       getScrollElement: () => scrollRef.current,
       estimateSize: () => ROW_HEIGHT,
       scrollToFn: elementScroll,
@@ -36,7 +54,7 @@ export function FileList() {
   }
 
   virtualizerRef.current.setOptions({
-    count: fileList.length,
+    count: filteredFiles.length,
     getScrollElement: () => scrollRef.current,
     estimateSize: () => ROW_HEIGHT,
     scrollToFn: elementScroll,
@@ -74,26 +92,31 @@ export function FileList() {
   const virtualItems = virtualizer.getVirtualItems();
 
   return (
-    <div
-      data-testid="file-list"
-      ref={scrollRef}
-      className="h-full overflow-y-auto"
-    >
-      <div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
-        {virtualItems.map((item) => (
-          <FileRow
-            key={item.key}
-            file={fileList[item.index]}
-            isSelected={item.index === selectedIndex}
-            style={{
-              position: "absolute",
-              top: item.start,
-              width: "100%",
-              height: item.size,
-            }}
-            onClick={() => setSelectedIndex(item.index)}
-          />
-        ))}
+    <div data-testid="file-list" className="h-full flex flex-col">
+      <SessionFilter />
+      <div ref={scrollRef} className="flex-1 overflow-y-auto">
+        <div
+          style={{ height: virtualizer.getTotalSize(), position: "relative" }}
+        >
+          {virtualItems.map((item) => {
+            const file = filteredFiles[item.index];
+            const originalIndex = fileList.indexOf(file);
+            return (
+              <FileRow
+                key={item.key}
+                file={file}
+                isSelected={originalIndex === selectedIndex}
+                style={{
+                  position: "absolute",
+                  top: item.start,
+                  width: "100%",
+                  height: item.size,
+                }}
+                onClick={() => setSelectedIndex(originalIndex)}
+              />
+            );
+          })}
+        </div>
       </div>
     </div>
   );
