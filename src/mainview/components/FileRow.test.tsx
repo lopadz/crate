@@ -9,6 +9,9 @@ const { mockDbSetColorTag } = vi.hoisted(() => ({
 
 vi.mock("../rpc", () => ({
   rpcClient: {
+    request: {
+      dawCreateDragCopy: vi.fn().mockResolvedValue("/tmp/drag/kick.wav"),
+    },
     send: { dbSetColorTag: mockDbSetColorTag },
   },
 }));

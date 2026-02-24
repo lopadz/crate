@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { AudioFile, TagColor } from "../../shared/types";
+import { useDragDrop } from "../hooks/useDragDrop";
 import { rpcClient } from "../rpc";
 import { useAnalysisStore } from "../stores/analysisStore";
 import { useBrowserStore } from "../stores/browserStore";
@@ -26,6 +27,7 @@ export function FileRow({ file, isSelected, onClick, style }: FileRowProps) {
     file.compositeId ? s.fileStatuses[file.compositeId] : undefined,
   );
   const isScanning = analysisStatus === "queued";
+  const { onDragStart } = useDragDrop(file);
 
   function handleContextMenu(e: React.MouseEvent) {
     e.preventDefault();
@@ -49,7 +51,9 @@ export function FileRow({ file, isSelected, onClick, style }: FileRowProps) {
           : "text-gray-300 hover:bg-[#252525]"
       }`}
       style={style}
+      draggable={!isScanning}
       onClick={isScanning ? undefined : onClick}
+      onDragStart={isScanning ? undefined : onDragStart}
       onContextMenu={handleContextMenu}
     >
       {file.colorTag ? (

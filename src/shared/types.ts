@@ -75,6 +75,17 @@ export type CrateRPC = {
         params: { name: string; color: string | null };
         response: Tag;
       };
+      // DAW integration
+      dawCreateDragCopy: {
+        params: {
+          path: string;
+          pattern: string;
+          bpm?: number | null;
+          key?: string | null;
+          keyCamelot?: string | null;
+        };
+        response: string; // absolute path to the temp copy
+      };
       // Analysis
       analysisGetStatus: {
         params: Record<string, never>;

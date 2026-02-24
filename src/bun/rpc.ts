@@ -3,6 +3,7 @@ import type { CrateRPC } from "../shared/types";
 import type { AnalysisError, AnalysisResult } from "./analysisQueue";
 import { AnalysisQueue } from "./analysisQueue";
 import { queries } from "./db";
+import { createDragCopy } from "./dragDrop";
 import {
   listDirs,
   readdir,
@@ -118,6 +119,9 @@ export function createRpc(
         dbGetPinnedFolders: () => queries.getPinnedFolders(),
 
         dbCreateTag: ({ name, color }) => queries.createTag(name, color),
+
+        dawCreateDragCopy: ({ path, pattern, bpm, key, keyCamelot }) =>
+          createDragCopy({ filePath: path, pattern, bpm, key, keyCamelot }),
 
         analysisGetStatus: () => analysisQueue.getStatus(),
 

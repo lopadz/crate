@@ -8,6 +8,7 @@ interface SettingsState {
   normalizationTargetLufs: number;
   sidebarWidth: number;
   detailPanelWidth: number;
+  dragPattern: string;
 
   setPinnedFolders: (folders: string[]) => void;
   addPinnedFolder: (path: string) => void;
@@ -16,6 +17,7 @@ interface SettingsState {
   toggleNormalizeVolume: () => void;
   setSidebarWidth: (w: number) => void;
   setDetailPanelWidth: (w: number) => void;
+  setDragPattern: (pattern: string) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -27,6 +29,7 @@ export const useSettingsStore = create<SettingsState>()(
       normalizationTargetLufs: -14,
       sidebarWidth: 220,
       detailPanelWidth: 300,
+      dragPattern: "{original}",
 
       setPinnedFolders: (folders) => set({ pinnedFolders: folders }),
 
@@ -48,6 +51,8 @@ export const useSettingsStore = create<SettingsState>()(
       setSidebarWidth: (w) => set({ sidebarWidth: w }),
 
       setDetailPanelWidth: (w) => set({ detailPanelWidth: w }),
+
+      setDragPattern: (pattern) => set({ dragPattern: pattern }),
     }),
     { name: "crate-settings" },
   ),

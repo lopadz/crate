@@ -10,6 +10,7 @@ vi.mock("./rpc", () => ({
       fsReaddir: vi.fn().mockResolvedValue([]),
       fsListDirs: vi.fn().mockResolvedValue([]),
       collectionGetAll: vi.fn().mockResolvedValue([]),
+      dawCreateDragCopy: vi.fn().mockResolvedValue("/tmp/drag/test.wav"),
     },
     send: { fsStartWatch: vi.fn(), fsStopWatch: vi.fn() },
   },
