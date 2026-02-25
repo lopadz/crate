@@ -1,7 +1,7 @@
 import { BrowserWindow, Updater, Utils } from "electrobun/bun";
+import type { AnalysisResult } from "./analysisQueue";
 import { queries } from "./db";
 import { scanFolderRecursive } from "./filesystem";
-import type { AnalysisResultCallback } from "./rpc";
 import { createRpc } from "./rpc";
 
 const DEV_SERVER_PORT = 5173;
@@ -21,14 +21,24 @@ async function getMainViewUrl(): Promise<string> {
   return "views://mainview/index.html";
 }
 
-// Late-bound callbacks: populated after mainWindow is created so RPC handlers
-// can push notifications to the renderer without a circular dependency.
-let notifyDirectoryChanged: (path: string) => void = () => {};
-let notifyAnalysisResult: AnalysisResultCallback = () => {};
+// Notifier<T>: wraps a late-bound callback so RPC handlers can push
+// notifications to the renderer without a circular dependency on mainWindow.
+class Notifier<T> {
+  private fn: (payload: T) => void = () => {};
+  bind(fn: (payload: T) => void): void {
+    this.fn = fn;
+  }
+  notify(payload: T): void {
+    this.fn(payload);
+  }
+}
+
+const directoryChangedNotifier = new Notifier<{ path: string }>();
+const analysisResultNotifier = new Notifier<AnalysisResult>();
 
 const rpc = createRpc(
-  (path) => notifyDirectoryChanged(path),
-  (result) => notifyAnalysisResult(result),
+  (path) => directoryChangedNotifier.notify({ path }),
+  (result) => analysisResultNotifier.notify(result),
 );
 
 const url = await getMainViewUrl();
@@ -45,9 +55,8 @@ const mainWindow = new BrowserWindow({
   },
 });
 
-notifyDirectoryChanged = (path) => mainWindow.webview.rpc?.send.fsDirectoryChanged({ path });
-
-notifyAnalysisResult = (result) => mainWindow.webview.rpc?.send.analysisResult(result);
+directoryChangedNotifier.bind((p) => mainWindow.webview.rpc?.send.fsDirectoryChanged(p));
+analysisResultNotifier.bind((r) => mainWindow.webview.rpc?.send.analysisResult(r));
 
 mainWindow.on("close", () => {
   Utils.quit();
