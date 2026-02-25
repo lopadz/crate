@@ -2,6 +2,7 @@ import { BrowserView, Utils } from "electrobun/bun";
 import type { CrateRPC } from "../shared/types";
 import type { AnalysisError, AnalysisResult } from "./analysisQueue";
 import { AnalysisQueue } from "./analysisQueue";
+import { audioServerBaseUrl, audioServerToken } from "./audioServer";
 import { queries } from "./db";
 import { createDragCopy } from "./dragDrop";
 import {
@@ -86,6 +87,11 @@ export function createRpc(
           });
           return (paths ?? []).filter((p) => p.length > 0);
         },
+
+        fsGetAudioConfig: () => ({
+          baseUrl: audioServerBaseUrl,
+          token: audioServerToken,
+        }),
 
         fsReadAudio: async ({ path }) => {
           const buf = await Bun.file(path).arrayBuffer();

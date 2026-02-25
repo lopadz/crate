@@ -26,11 +26,10 @@ export class AudioEngine {
   private ctx: AudioContext | null = null;
   private source: AudioBufferSourceNode | null = null;
   private cache = new Map<string, AudioBuffer>();
-  private blobUrlCache = new Map<string, string>();
   // Caches the expensive per-sample RMS computation. Invalidated on cache eviction.
   private measuredDbCache = new Map<string, number>();
   // Tracks in-flight decodes so concurrent preload() + play() calls for the same
-  // uncached file share one IPC round-trip instead of issuing duplicate requests.
+  // uncached file share one fetch instead of issuing duplicate requests.
   private pending = new Map<string, Promise<AudioBuffer>>();
   // Incremented on every play() call. After each await, a stale call bails out
   // instead of starting a second audio source concurrently with the current one.
@@ -38,61 +37,34 @@ export class AudioEngine {
   private pauseOffset = 0;
   private startedAt = 0;
 
-  // Web Worker for base64 → ArrayBuffer conversion. Created lazily on first use
-  // so test environments (no Worker global) are unaffected.
-  private decodeWorker: Worker | null = null;
-  private workerPending = new Map<
-    number,
-    { resolve: (buf: ArrayBuffer) => void; reject: (err: Error) => void }
-  >();
-  private nextDecodeId = 0;
+  // HTTP audio server config — set once at startup via setServerConfig().
+  // Until set, _doDecode falls back to the legacy IPC base64 path.
+  private serverBaseUrl: string | null = null;
+  private serverToken: string | null = null;
+
+  /** Called once at app startup with the local HTTP audio server coordinates. */
+  setServerConfig(baseUrl: string, token: string): void {
+    this.serverBaseUrl = baseUrl;
+    this.serverToken = token;
+  }
+
+  /**
+   * Returns an http:// URL for the given file path once the server is
+   * configured, undefined otherwise. WaveSurfer can use this URL directly.
+   */
+  getAudioUrl(path: string): string | undefined {
+    if (!this.serverBaseUrl || !this.serverToken) return undefined;
+    return `${this.serverBaseUrl}/audio?path=${encodeURIComponent(path)}&token=${this.serverToken}`;
+  }
+
+  /** @deprecated Use getAudioUrl(). Kept for Waveform.tsx compatibility. */
+  getBlobUrl(path: string): string | undefined {
+    return this.getAudioUrl(path);
+  }
 
   private getCtx(): AudioContext {
     if (!this.ctx) this.ctx = new AudioContext();
     return this.ctx;
-  }
-
-  private getDecodeWorker(): Worker | null {
-    if (this.decodeWorker) return this.decodeWorker;
-    if (typeof Worker === "undefined") return null;
-    this.decodeWorker = new Worker(
-      new URL("./decodeWorker.ts", import.meta.url),
-      { type: "module" },
-    );
-    this.decodeWorker.onmessage = (
-      e: MessageEvent<{ id: number; buffer?: ArrayBuffer; error?: string }>,
-    ) => {
-      const { id, buffer, error } = e.data;
-      const pending = this.workerPending.get(id);
-      if (!pending) return;
-      this.workerPending.delete(id);
-      if (error || !buffer) {
-        pending.reject(new Error(error ?? "Worker decode failed"));
-      } else {
-        pending.resolve(buffer);
-      }
-    };
-    return this.decodeWorker;
-  }
-
-  // Decode base64 → ArrayBuffer in the worker thread (zero main-thread blocking
-  // beyond the postMessage string copy, which is a fast memcpy ~1–5ms).
-  // Falls back to synchronous decode in environments without Worker support.
-  private decodeBase64(base64: string): Promise<ArrayBuffer> {
-    const worker = this.getDecodeWorker();
-    if (!worker) {
-      // Sync fallback (test environments / no Worker support)
-      const binaryStr = atob(base64);
-      const len = binaryStr.length;
-      const bytes = new Uint8Array(len);
-      for (let i = 0; i < len; i++) bytes[i] = binaryStr.charCodeAt(i);
-      return Promise.resolve(bytes.buffer);
-    }
-    return new Promise((resolve, reject) => {
-      const id = ++this.nextDecodeId;
-      this.workerPending.set(id, { resolve, reject });
-      worker.postMessage({ id, base64 });
-    });
   }
 
   private decodeFile(file: AudioFile): Promise<AudioBuffer> {
@@ -110,17 +82,28 @@ export class AudioEngine {
 
   private async _doDecode(file: AudioFile): Promise<AudioBuffer> {
     const ctx = this.getCtx();
-    const base64 = await rpcClient?.request.fsReadAudio({ path: file.path });
-    if (!base64) throw new Error(`Failed to read audio: ${file.path}`);
+    let arrayBuffer: ArrayBuffer;
 
-    // Decode base64 → ArrayBuffer in the worker — atob + byte-copy loop run
-    // entirely off the main thread, keeping hover effects and paint responsive.
-    const arrayBuffer = await this.decodeBase64(base64);
-
-    // Create blob URL before decodeAudioData in case the impl transfers the buffer
-    if (!this.blobUrlCache.has(file.path)) {
-      const blob = new Blob([arrayBuffer]);
-      this.blobUrlCache.set(file.path, URL.createObjectURL(blob));
+    const httpUrl = this.getAudioUrl(file.path);
+    if (httpUrl) {
+      // Fast path: WebView fetches directly from the local HTTP server.
+      // No IPC binary transfer, no base64 encode/decode — just a local HTTP GET.
+      const response = await fetch(httpUrl);
+      if (!response.ok)
+        throw new Error(
+          `Audio fetch failed (${response.status}): ${file.path}`,
+        );
+      arrayBuffer = await response.arrayBuffer();
+    } else {
+      // Legacy fallback: used only in the brief window before setServerConfig()
+      // is called (or in test environments without the Bun HTTP server).
+      const base64 = await rpcClient?.request.fsReadAudio({ path: file.path });
+      if (!base64) throw new Error(`Failed to read audio: ${file.path}`);
+      const binaryStr = atob(base64);
+      const len = binaryStr.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) bytes[i] = binaryStr.charCodeAt(i);
+      arrayBuffer = bytes.buffer;
     }
 
     const buffer = await ctx.decodeAudioData(arrayBuffer);
@@ -128,11 +111,6 @@ export class AudioEngine {
     // Evict oldest entry if cache is full
     if (this.cache.size >= CACHE_MAX) {
       const oldest = this.cache.keys().next().value as string;
-      const evictedUrl = this.blobUrlCache.get(oldest);
-      if (evictedUrl) {
-        URL.revokeObjectURL(evictedUrl);
-        this.blobUrlCache.delete(oldest);
-      }
       this.measuredDbCache.delete(oldest);
       this.cache.delete(oldest);
     }
@@ -147,11 +125,6 @@ export class AudioEngine {
     }, 0);
 
     return buffer;
-  }
-
-  /** Returns a blob URL for the file if it has been loaded, undefined otherwise. */
-  getBlobUrl(path: string): string | undefined {
-    return this.blobUrlCache.get(path);
   }
 
   /** Decode the file to warm the cache. Returns a Promise that resolves when ready. */
@@ -263,13 +236,6 @@ export class AudioEngine {
     this.cache.clear();
     this.measuredDbCache.clear();
     this.pending.clear();
-    this.decodeWorker?.terminate();
-    this.decodeWorker = null;
-    this.workerPending.clear();
-    for (const url of this.blobUrlCache.values()) {
-      URL.revokeObjectURL(url);
-    }
-    this.blobUrlCache.clear();
   }
 }
 

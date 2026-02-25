@@ -189,28 +189,34 @@ describe("AudioEngine", () => {
     expect(mockFsReadAudio).toHaveBeenCalledTimes(3);
   });
 
-  test("getBlobUrl() returns the blob URL after a file is played", async () => {
-    await engine.play(file);
-    expect(engine.getBlobUrl(file.path)).toBe("blob:mock://test");
+  test("getAudioUrl() returns an http URL when server is configured", () => {
+    engine.setServerConfig("http://localhost:9999", "tok123");
+    expect(engine.getAudioUrl(file.path)).toBe(
+      `http://localhost:9999/audio?path=${encodeURIComponent(file.path)}&token=tok123`,
+    );
   });
 
-  test("getBlobUrl() returns undefined for a file that has not been loaded", () => {
-    expect(engine.getBlobUrl("/never/loaded.wav")).toBeUndefined();
+  test("getAudioUrl() returns undefined when server is not configured", () => {
+    expect(engine.getAudioUrl("/never/loaded.wav")).toBeUndefined();
+  });
+
+  test("getBlobUrl() delegates to getAudioUrl()", () => {
+    engine.setServerConfig("http://localhost:9999", "tok123");
+    expect(engine.getBlobUrl(file.path)).toBe(engine.getAudioUrl(file.path));
   });
 
   test("preload() warms the cache without playing", async () => {
     engine.preload(file);
     await new Promise((r) => setTimeout(r, 20));
+    // Falls back to fsReadAudio since no server config in test env
     expect(mockFsReadAudio).toHaveBeenCalledWith({ path: file.path });
-    expect(engine.getBlobUrl(file.path)).toBe("blob:mock://test");
     // No source node was started
     expect(mockStart).not.toHaveBeenCalled();
   });
 
-  test("dispose() revokes all blob URLs", async () => {
+  test("dispose() does not throw", async () => {
     await engine.play(file);
-    engine.dispose();
-    expect(mockRevokeObjectURL).toHaveBeenCalledWith("blob:mock://test");
+    expect(() => engine.dispose()).not.toThrow();
   });
 });
 
