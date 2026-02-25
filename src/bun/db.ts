@@ -698,3 +698,5 @@ export function openDatabase(path: string = DB_PATH): Database {
 // App singleton — initialized once at startup
 const _db = openDatabase();
 export const queries = createQueryHelpers(_db);
+
+export type QueryHelpers = ReturnType<typeof createQueryHelpers>;
