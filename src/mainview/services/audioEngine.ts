@@ -5,7 +5,9 @@ import { useSettingsStore } from "../stores/settingsStore";
 
 const CACHE_MAX = 5;
 
-function computeGain(buffer: AudioBuffer, targetLufsDb: number): number {
+// Returns the RMS-based measured dB of a buffer (the expensive per-sample loop).
+// Separated from the final gain formula so the result can be cached per file.
+function computeMeasuredDb(buffer: AudioBuffer): number {
   let sumSquares = 0;
   let totalSamples = 0;
   for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
@@ -16,10 +18,8 @@ function computeGain(buffer: AudioBuffer, targetLufsDb: number): number {
     totalSamples += data.length;
   }
   const rms = Math.sqrt(sumSquares / totalSamples);
-  if (rms === 0) return 1.0;
-  const measuredDb = 20 * Math.log10(rms);
-  const gainDb = targetLufsDb - measuredDb;
-  return Math.pow(10, gainDb / 20);
+  if (rms === 0) return -Infinity;
+  return 20 * Math.log10(rms);
 }
 
 export class AudioEngine {
@@ -27,6 +27,8 @@ export class AudioEngine {
   private source: AudioBufferSourceNode | null = null;
   private cache = new Map<string, AudioBuffer>();
   private blobUrlCache = new Map<string, string>();
+  // Caches the expensive per-sample RMS computation. Invalidated on cache eviction.
+  private measuredDbCache = new Map<string, number>();
   private pauseOffset = 0;
   private startedAt = 0;
 
@@ -53,6 +55,9 @@ export class AudioEngine {
 
     const buffer = await ctx.decodeAudioData(bytes.buffer);
 
+    // Pre-compute and cache the RMS dB so play() never blocks the main thread.
+    this.measuredDbCache.set(file.path, computeMeasuredDb(buffer));
+
     // Evict oldest entry if cache is full
     if (this.cache.size >= CACHE_MAX) {
       const oldest = this.cache.keys().next().value as string;
@@ -61,6 +66,7 @@ export class AudioEngine {
         URL.revokeObjectURL(evictedUrl);
         this.blobUrlCache.delete(oldest);
       }
+      this.measuredDbCache.delete(oldest);
       this.cache.delete(oldest);
     }
     this.cache.set(file.path, buffer);
@@ -91,7 +97,13 @@ export class AudioEngine {
       useSettingsStore.getState();
     if (normalizeVolume) {
       const gainNode = ctx.createGain();
-      gainNode.gain.value = computeGain(buffer, normalizationTargetLufs);
+      // measuredDb was cached during decodeFile — no main-thread blocking here.
+      const measuredDb =
+        this.measuredDbCache.get(file.path) ?? computeMeasuredDb(buffer);
+      gainNode.gain.value = Math.pow(
+        10,
+        (normalizationTargetLufs - measuredDb) / 20,
+      );
       source.connect(gainNode);
       gainNode.connect(ctx.destination);
     } else {
@@ -167,6 +179,7 @@ export class AudioEngine {
     this.ctx?.close();
     this.ctx = null;
     this.cache.clear();
+    this.measuredDbCache.clear();
     for (const url of this.blobUrlCache.values()) {
       URL.revokeObjectURL(url);
     }
