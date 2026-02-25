@@ -321,6 +321,20 @@ export function createQueryHelpers(db: Database) {
        composite_id = CASE WHEN composite_id = '' THEN excluded.composite_id ELSE composite_id END`,
   );
 
+  const logOperationStmt = db.prepare(
+    `INSERT INTO file_operations_log (operation, files_json, timestamp) VALUES (?, ?, ?) RETURNING id`,
+  );
+
+  const getOperationsLogStmt = db.prepare(
+    `SELECT id, operation, files_json, timestamp, rolled_back_at
+     FROM file_operations_log
+     ORDER BY timestamp DESC, id DESC`,
+  );
+
+  const markRolledBackStmt = db.prepare(
+    `UPDATE file_operations_log SET rolled_back_at = ? WHERE id = ?`,
+  );
+
   const upsertFilesFromScanTx = db.transaction(
     (files: Array<{ path: string; extension: string }>) => {
       const now = Date.now();
@@ -614,6 +628,19 @@ export function createQueryHelpers(db: Database) {
       upsertFilesFromScanTx(files);
     },
 
+    logOperation(op: { operation: string; filesJson: string }): number {
+      const row = logOperationStmt.get(op.operation, op.filesJson, Date.now()) as { id: number };
+      return row.id;
+    },
+
+    getOperationsLog(): OperationLogRow[] {
+      return getOperationsLogStmt.all() as OperationLogRow[];
+    },
+
+    markRolledBack(id: number): void {
+      markRolledBackStmt.run(Date.now(), id);
+    },
+
     createCollection(name: string, color: string | null, queryJson: string | null): Collection {
       const row = createCollectionStmt.get(name, color, queryJson, Date.now()) as {
         id: number;
@@ -685,6 +712,14 @@ export function createQueryHelpers(db: Database) {
     },
   };
 }
+
+export type OperationLogRow = {
+  id: number;
+  operation: string;
+  files_json: string;
+  timestamp: number;
+  rolled_back_at: number | null;
+};
 
 export function openDatabase(path: string = DB_PATH): Database {
   if (path !== ":memory:") {

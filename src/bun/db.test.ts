@@ -604,3 +604,43 @@ describe("ratings", () => {
     expect(q.getRating("rat-cid-1")).toBe(1);
   });
 });
+
+// ─── file_operations_log helpers ─────────────────────────────────────────────
+
+describe("logOperation / getOperationsLog / markRolledBack", () => {
+  let q: ReturnType<typeof createQueryHelpers>;
+
+  beforeEach(() => {
+    const db = makeDb();
+    q = createQueryHelpers(db);
+  });
+
+  test("logOperation returns a numeric id", () => {
+    const id = q.logOperation({ operation: "copy", filesJson: "[]" });
+    expect(typeof id).toBe("number");
+    expect(id).toBeGreaterThan(0);
+  });
+
+  test("getOperationsLog returns the logged entry", () => {
+    q.logOperation({ operation: "copy", filesJson: '[{"originalPath":"/a","newPath":"/b"}]' });
+    const log = q.getOperationsLog();
+    expect(log.length).toBe(1);
+    expect(log[0].operation).toBe("copy");
+    expect(log[0].rolled_back_at).toBeNull();
+  });
+
+  test("markRolledBack sets rolled_back_at on the entry", () => {
+    const id = q.logOperation({ operation: "rename", filesJson: "[]" });
+    q.markRolledBack(id);
+    const log = q.getOperationsLog();
+    expect(log[0].rolled_back_at).not.toBeNull();
+  });
+
+  test("getOperationsLog returns entries newest-first", () => {
+    q.logOperation({ operation: "copy", filesJson: "[]" });
+    q.logOperation({ operation: "rename", filesJson: "[]" });
+    const log = q.getOperationsLog();
+    expect(log[0].operation).toBe("rename");
+    expect(log[1].operation).toBe("copy");
+  });
+});
