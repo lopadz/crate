@@ -14,27 +14,31 @@ export function useFileList() {
 
     const loadFiles = (files: Parameters<typeof setFileList>[0]) => {
       setFileList(files);
-      const { setFileStatus } = useAnalysisStore.getState();
+      // Build all statuses in one pass and apply as a single store update
+      // to avoid N individual re-renders for large directories.
+      const statuses: Record<string, "queued" | "done"> = {};
       for (const f of files) {
         if (!f.compositeId) continue;
-        setFileStatus(
-          f.compositeId,
-          f.lufsIntegrated != null ? "done" : "queued",
-        );
+        statuses[f.compositeId] = f.lufsIntegrated != null ? "done" : "queued";
       }
-    };
+      useAnalysisStore.getState().setFileStatuses(statuses);
+    };;
 
     const scanFiles = async (files: Parameters<typeof setFileList>[0]) => {
-      const { setFileStatus } = useAnalysisStore.getState();
+      // Yield once so the file list renders before we finalize statuses.
+      // Real analysis (BPM/key/LUFS) will happen in the backend worker;
+      // for now mark all queued files done in a single bulk update.
+      await new Promise<void>((r) => setTimeout(r, 0));
+      if (cancelled) return;
+      const updates: Record<string, "done"> = {};
       for (const f of files) {
-        if (cancelled) break;
         if (!f.compositeId || f.lufsIntegrated != null) continue;
-        // Yield to the event loop between files so UI stays responsive.
-        // Real analysis (BPM/key/LUFS) will run here in a future commit.
-        await new Promise<void>((r) => setTimeout(r, 0));
-        if (!cancelled && f.compositeId) setFileStatus(f.compositeId, "done");
+        updates[f.compositeId] = "done";
       }
-    };
+      if (Object.keys(updates).length > 0) {
+        useAnalysisStore.getState().setFileStatuses(updates);
+      }
+    };;
 
     rpcClient?.request.fsReaddir({ path: activeFolder }).then((files) => {
       if (!cancelled) {

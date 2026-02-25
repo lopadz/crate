@@ -64,4 +64,24 @@ describe("analysisStore — per-file status", () => {
     useAnalysisStore.getState().setFileStatus("cid-1", "done");
     expect(useAnalysisStore.getState().fileStatuses["cid-1"]).toBe("done");
   });
+
+  test("setFileStatuses sets multiple statuses in one update", () => {
+    useAnalysisStore.getState().setFileStatuses({
+      "cid-a": "queued",
+      "cid-b": "done",
+      "cid-c": "error",
+    });
+    const statuses = useAnalysisStore.getState().fileStatuses;
+    expect(statuses["cid-a"]).toBe("queued");
+    expect(statuses["cid-b"]).toBe("done");
+    expect(statuses["cid-c"]).toBe("error");
+  });
+
+  test("setFileStatuses merges with existing statuses", () => {
+    useAnalysisStore.getState().setFileStatus("cid-existing", "queued");
+    useAnalysisStore.getState().setFileStatuses({ "cid-new": "done" });
+    const statuses = useAnalysisStore.getState().fileStatuses;
+    expect(statuses["cid-existing"]).toBe("queued");
+    expect(statuses["cid-new"]).toBe("done");
+  });
 });

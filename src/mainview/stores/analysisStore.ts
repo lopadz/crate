@@ -12,6 +12,7 @@ interface AnalysisState {
     total: number;
   }) => void;
   setFileStatus: (compositeId: string, status: FileAnalysisStatus) => void;
+  setFileStatuses: (statuses: Record<string, FileAnalysisStatus>) => void;
 }
 
 export const useAnalysisStore = create<AnalysisState>((set) => ({
@@ -23,5 +24,10 @@ export const useAnalysisStore = create<AnalysisState>((set) => ({
   setFileStatus: (compositeId, status) =>
     set((state) => ({
       fileStatuses: { ...state.fileStatuses, [compositeId]: status },
+    })),
+
+  setFileStatuses: (statuses) =>
+    set((state) => ({
+      fileStatuses: { ...state.fileStatuses, ...statuses },
     })),
 }));
