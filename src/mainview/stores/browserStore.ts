@@ -53,7 +53,19 @@ export const useBrowserStore = create<BrowserState>((set, get) => ({
 
   setActiveFolder: (path) => set({ activeFolder: path }),
 
-  setFileList: (files) => set({ fileList: files, selectedIndex: -1 }),
+  setFileList: (files) =>
+    set((state) => {
+      const current =
+        state.selectedIndex >= 0 ? state.fileList[state.selectedIndex] : null;
+      const newSelectedIndex = current
+        ? files.findIndex(
+            (f) =>
+              (current.compositeId && f.compositeId === current.compositeId) ||
+              f.path === current.path,
+          )
+        : -1;
+      return { fileList: files, selectedIndex: newSelectedIndex };
+    }),
 
   setSelectedIndex: (index) => set({ selectedIndex: index }),
 

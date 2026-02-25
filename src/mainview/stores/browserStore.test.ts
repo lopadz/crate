@@ -28,12 +28,42 @@ describe("browserStore — folder / file list", () => {
     expect(useBrowserStore.getState().activeFolder).toBe("/samples");
   });
 
-  test("setFileList replaces file list and resets selection", () => {
+  test("setFileList replaces file list; resets selection when nothing was selected", () => {
     const files = [file("kick.wav"), file("snare.wav")];
     useBrowserStore.getState().setFileList(files);
     const s = useBrowserStore.getState();
     expect(s.fileList).toHaveLength(2);
     expect(s.selectedIndex).toBe(-1);
+  });
+
+  test("setFileList preserves selection when the selected file is still present (compositeId match)", () => {
+    const kick = { ...file("kick.wav"), compositeId: "cid-kick" };
+    const snare = { ...file("snare.wav"), compositeId: "cid-snare" };
+    useBrowserStore.setState({
+      ...useBrowserStore.getState(),
+      fileList: [kick, snare],
+      selectedIndex: 1, // snare is selected
+    });
+    // Refresh list with same files (e.g. directory-change event)
+    const refreshed = [
+      { ...kick, bpm: 120 },
+      { ...snare, bpm: 95 },
+    ];
+    useBrowserStore.getState().setFileList(refreshed);
+    expect(useBrowserStore.getState().selectedIndex).toBe(1); // snare still selected
+  });
+
+  test("setFileList resets selection when the selected file is no longer in the list", () => {
+    const kick = { ...file("kick.wav"), compositeId: "cid-kick" };
+    const snare = { ...file("snare.wav"), compositeId: "cid-snare" };
+    useBrowserStore.setState({
+      ...useBrowserStore.getState(),
+      fileList: [kick, snare],
+      selectedIndex: 1,
+    });
+    // Navigate away — snare is not in new list
+    useBrowserStore.getState().setFileList([file("hat.wav", "cid-hat")]);
+    expect(useBrowserStore.getState().selectedIndex).toBe(-1);
   });
 });
 
