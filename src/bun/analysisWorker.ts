@@ -1,25 +1,27 @@
 /**
  * Bun Worker thread: decodes an audio file to PCM and runs analysis.
  *
- * Receives: { type: "ANALYZE", fileId: number, path: string }
+ * Receives: { type: "ANALYZE", compositeId: string, path: string }
  * Posts:    { type: "RESULT", compositeId, bpm, key, keyCamelot, lufsIntegrated, lufsPeak, dynamicRange }
  *      or:  { type: "ERROR",  compositeId, error: string }
  *
- * Supported formats: PCM WAV (16-bit, 24-bit, 32-bit float).
- * Non-WAV files receive null analysis values (no error).
+ * Supported formats: WAV (fast path), MP3, FLAC, AIFF, OGG, M4A/AAC, OPUS (via audio-decode).
  */
 
+import audioDecode from "audio-decode";
 import { detectBpm } from "./bpmDetection";
 import { detectKey } from "./keyDetection";
 import { measureLufs } from "./lufs";
 import { parseWavChunks, readUint16LE, readUint32LE } from "./wavUtils";
 
-// ─── WAV decoder ──────────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface WavData {
   mono: Float32Array;
   sampleRate: number;
 }
+
+// ─── WAV fast-path decoder ────────────────────────────────────────────────────
 
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: PCM sample-type branching is inherently complex
 function decodeWav(buffer: ArrayBuffer): WavData | null {
@@ -86,6 +88,50 @@ function decodeWav(buffer: ArrayBuffer): WavData | null {
   return { mono, sampleRate };
 }
 
+// ─── Multi-channel to mono mix ────────────────────────────────────────────────
+
+function mixToMono(channels: Float32Array[]): Float32Array {
+  if (channels.length === 1) return channels[0];
+  const len = channels[0].length;
+  const mono = new Float32Array(len);
+  for (let i = 0; i < len; i++) {
+    let sum = 0;
+    for (const ch of channels) sum += ch[i];
+    mono[i] = sum / channels.length;
+  }
+  return mono;
+}
+
+// ─── Multi-format decoder ─────────────────────────────────────────────────────
+
+/**
+ * Decodes any supported audio format to mono PCM + sample rate.
+ *
+ * Fast path: WAV and AIFF/AIF use the hand-rolled PCM decoder (zero WASM overhead).
+ * Fallback: audio-decode handles MP3, FLAC, OGG, M4A, AAC, OPUS, and non-PCM WAVs.
+ *
+ * Exported for unit testing.
+ */
+export async function decodeAudio(buffer: ArrayBuffer, path: string): Promise<WavData | null> {
+  const ext = path.split(".").pop()?.toLowerCase();
+  if (ext === "wav" || ext === "aif" || ext === "aiff") {
+    const result = decodeWav(buffer);
+    if (result) return result;
+    // Fall through to audio-decode for non-PCM WAV (e.g. ADPCM, float extensible)
+  }
+  try {
+    const decoded = await audioDecode(buffer);
+    const channels: Float32Array[] = [];
+    for (let i = 0; i < decoded.numberOfChannels; i++) {
+      channels.push(decoded.getChannelData(i));
+    }
+    const mono = mixToMono(channels);
+    return { mono, sampleRate: decoded.sampleRate };
+  } catch {
+    return null;
+  }
+}
+
 // ─── Worker message handler ───────────────────────────────────────────────────
 
 self.onmessage = async (event: MessageEvent) => {
@@ -96,9 +142,9 @@ self.onmessage = async (event: MessageEvent) => {
 
   try {
     const buffer = await Bun.file(path).arrayBuffer();
-    const wav = decodeWav(buffer);
+    const decoded = await decodeAudio(buffer, path);
 
-    if (!wav) {
+    if (!decoded) {
       // Unsupported format — return empty analysis rather than error
       self.postMessage({
         type: "RESULT",
@@ -113,7 +159,7 @@ self.onmessage = async (event: MessageEvent) => {
       return;
     }
 
-    const { mono, sampleRate } = wav;
+    const { mono, sampleRate } = decoded;
     const lufs = measureLufs(mono, sampleRate);
     const bpm = detectBpm(mono, sampleRate);
     const keyResult = detectKey(mono, sampleRate);
