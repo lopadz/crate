@@ -32,6 +32,9 @@ export class AudioEngine {
   // Tracks in-flight decodes so concurrent preload() + play() calls for the same
   // uncached file share one IPC round-trip instead of issuing duplicate requests.
   private pending = new Map<string, Promise<AudioBuffer>>();
+  // Incremented on every play() call. After each await, a stale call bails out
+  // instead of starting a second audio source concurrently with the current one.
+  private playId = 0;
   private pauseOffset = 0;
   private startedAt = 0;
 
@@ -58,19 +61,19 @@ export class AudioEngine {
     const base64 = await rpcClient?.request.fsReadAudio({ path: file.path });
     if (!base64) throw new Error(`Failed to read audio: ${file.path}`);
 
-    // Manual loop is ~3× faster than Uint8Array.from(atob(...), callback) for large files
-    const binaryStr = atob(base64);
-    const len = binaryStr.length;
-    const bytes = new Uint8Array(len);
-    for (let i = 0; i < len; i++) bytes[i] = binaryStr.charCodeAt(i);
+    // Decode base64 via fetch(data:) so the conversion runs on WebKit's network thread
+    // instead of the JS main thread — keeps hover effects and paint responsive.
+    const arrayBuffer = await fetch(
+      `data:application/octet-stream;base64,${base64}`,
+    ).then((r) => r.arrayBuffer());
 
-    // Create a blob URL so other consumers (e.g. WaveSurfer) can load without CORS issues
+    // Create blob URL before decodeAudioData in case the impl transfers the buffer
     if (!this.blobUrlCache.has(file.path)) {
-      const blob = new Blob([bytes]);
+      const blob = new Blob([arrayBuffer]);
       this.blobUrlCache.set(file.path, URL.createObjectURL(blob));
     }
 
-    const buffer = await ctx.decodeAudioData(bytes.buffer);
+    const buffer = await ctx.decodeAudioData(arrayBuffer);
 
     // Evict oldest entry if cache is full
     if (this.cache.size >= CACHE_MAX) {
@@ -107,10 +110,15 @@ export class AudioEngine {
   }
 
   async play(file: AudioFile, neighbors: AudioFile[] = []): Promise<void> {
+    const id = ++this.playId;
     this.stop();
 
     const ctx = this.getCtx();
     const buffer = await this.decodeFile(file);
+
+    // A newer play() call was made while we were decoding — bail out to avoid
+    // starting two audio sources concurrently (the "two files playing" bug).
+    if (id !== this.playId) return;
 
     const source = ctx.createBufferSource();
     source.buffer = buffer;
