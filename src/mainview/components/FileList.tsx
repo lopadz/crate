@@ -17,8 +17,14 @@ export function FileList() {
   const activeFolder = useBrowserStore((s) => s.activeFolder);
   const fileList = useBrowserStore((s) => s.fileList);
   const selectedIndex = useBrowserStore((s) => s.selectedIndex);
-  const setSelectedIndex = useBrowserStore((s) => s.setSelectedIndex);
   const sessionFilter = useBrowserStore((s) => s.sessionFilter);
+
+  // O(1) lookup from file path → index in fileList. Rebuilt only when fileList changes.
+  const fileIndexMap = useMemo(() => {
+    const map = new Map<string, number>();
+    fileList.forEach((f, i) => map.set(f.path, i));
+    return map;
+  }, [fileList]);
 
   const filteredFiles = useMemo(() => {
     let files = fileList;
@@ -97,19 +103,19 @@ export function FileList() {
           >
             {virtualItems.map((item) => {
               const file = filteredFiles[item.index];
-              const originalIndex = fileList.indexOf(file);
+              const originalIndex = fileIndexMap.get(file.path) ?? -1;
               return (
                 <FileRow
                   key={item.key}
                   file={file}
                   isSelected={originalIndex === selectedIndex}
+                  originalIndex={originalIndex}
                   style={{
                     position: "absolute",
                     top: item.start,
                     width: "100%",
                     height: item.size,
                   }}
-                  onClick={() => setSelectedIndex(originalIndex)}
                 />
               );
             })}

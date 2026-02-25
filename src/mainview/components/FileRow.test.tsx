@@ -53,48 +53,49 @@ beforeEach(() => {
 
 describe("FileRow", () => {
   test("renders the file name", () => {
-    render(<FileRow file={baseFile} isSelected={false} onClick={() => {}} />);
+    render(<FileRow file={baseFile} isSelected={false} originalIndex={0} />);
     expect(screen.getByText("kick.wav")).toBeDefined();
   });
 
   test("renders the file extension", () => {
-    render(<FileRow file={baseFile} isSelected={false} onClick={() => {}} />);
+    render(<FileRow file={baseFile} isSelected={false} originalIndex={0} />);
     expect(screen.getByText(".wav")).toBeDefined();
   });
 
   test("renders formatted size", () => {
-    render(<FileRow file={baseFile} isSelected={false} onClick={() => {}} />);
+    render(<FileRow file={baseFile} isSelected={false} originalIndex={0} />);
     expect(screen.getByText("1.0 MB")).toBeDefined();
   });
 
   test("renders formatted duration when available", () => {
     render(
-      <FileRow file={fileWithMeta} isSelected={false} onClick={() => {}} />,
+      <FileRow file={fileWithMeta} isSelected={false} originalIndex={0} />,
     );
     expect(screen.getByText("1:23")).toBeDefined();
   });
 
   test("renders dash when duration is unavailable", () => {
-    render(<FileRow file={baseFile} isSelected={false} onClick={() => {}} />);
+    render(<FileRow file={baseFile} isSelected={false} originalIndex={0} />);
     // Multiple columns show "—" for missing data; at least one must be present
     expect(screen.getAllByText("—").length).toBeGreaterThan(0);
   });
 
-  test("calls onClick when the row is clicked", async () => {
-    const onClick = vi.fn();
-    render(<FileRow file={baseFile} isSelected={false} onClick={onClick} />);
+  test("calls setSelectedIndex when the row is clicked", async () => {
+    const setSelectedIndex = vi.fn();
+    useBrowserStore.setState((s) => ({ ...s, setSelectedIndex }));
+    render(<FileRow file={baseFile} isSelected={false} originalIndex={3} />);
     await userEvent.click(screen.getByTestId("file-row"));
-    expect(onClick).toHaveBeenCalledOnce();
+    expect(setSelectedIndex).toHaveBeenCalledWith(3);
   });
 
   test("applies selected styles when isSelected is true", () => {
-    render(<FileRow file={baseFile} isSelected={true} onClick={() => {}} />);
+    render(<FileRow file={baseFile} isSelected={true} originalIndex={0} />);
     const row = screen.getByTestId("file-row");
     expect(row.className).toContain("selected");
   });
 
   test("does not apply selected styles when isSelected is false", () => {
-    render(<FileRow file={baseFile} isSelected={false} onClick={() => {}} />);
+    render(<FileRow file={baseFile} isSelected={false} originalIndex={0} />);
     const row = screen.getByTestId("file-row");
     expect(row.className).not.toContain("selected");
   });
@@ -104,7 +105,7 @@ describe("FileRow", () => {
       <FileRow
         file={{ ...baseFile, colorTag: "green" }}
         isSelected={false}
-        onClick={() => {}}
+        originalIndex={0}
       />,
     );
     expect(screen.getByTestId("color-tag-green")).toBeDefined();
@@ -115,7 +116,7 @@ describe("FileRow", () => {
       <FileRow
         file={{ ...baseFile, colorTag: "yellow" }}
         isSelected={false}
-        onClick={() => {}}
+        originalIndex={0}
       />,
     );
     expect(screen.getByTestId("color-tag-yellow")).toBeDefined();
@@ -126,7 +127,7 @@ describe("FileRow", () => {
       <FileRow
         file={{ ...baseFile, colorTag: "red" }}
         isSelected={false}
-        onClick={() => {}}
+        originalIndex={0}
       />,
     );
     expect(screen.getByTestId("color-tag-red")).toBeDefined();
@@ -137,7 +138,7 @@ describe("FileRow", () => {
       <FileRow
         file={{ ...baseFile, colorTag: null }}
         isSelected={false}
-        onClick={() => {}}
+        originalIndex={0}
       />,
     );
     expect(screen.queryByTestId(/color-tag/)).toBeNull();
@@ -148,7 +149,7 @@ describe("FileRow", () => {
       <FileRow
         file={baseFile}
         isSelected={false}
-        onClick={() => {}}
+        originalIndex={0}
         style={{ position: "absolute", top: 72, height: 36 }}
       />,
     );
@@ -159,7 +160,7 @@ describe("FileRow", () => {
 
 describe("FileRow — right-click color tagging", () => {
   test("right-clicking the row shows the tag picker", async () => {
-    render(<FileRow file={baseFile} isSelected={false} onClick={() => {}} />);
+    render(<FileRow file={baseFile} isSelected={false} originalIndex={0} />);
     await userEvent.pointer({
       target: screen.getByTestId("file-row"),
       keys: "[MouseRight]",
@@ -172,7 +173,7 @@ describe("FileRow — right-click color tagging", () => {
       ...useBrowserStore.getState(),
       fileList: [baseFile],
     });
-    render(<FileRow file={baseFile} isSelected={false} onClick={() => {}} />);
+    render(<FileRow file={baseFile} isSelected={false} originalIndex={0} />);
     await userEvent.pointer({
       target: screen.getByTestId("file-row"),
       keys: "[MouseRight]",
@@ -191,9 +192,7 @@ describe("FileRow — right-click color tagging", () => {
       ...useBrowserStore.getState(),
       fileList: [fileWithTag],
     });
-    render(
-      <FileRow file={fileWithTag} isSelected={false} onClick={() => {}} />,
-    );
+    render(<FileRow file={fileWithTag} isSelected={false} originalIndex={0} />);
     await userEvent.pointer({
       target: screen.getByTestId("file-row"),
       keys: "[MouseRight]",
@@ -207,7 +206,7 @@ describe("FileRow — right-click color tagging", () => {
   });
 
   test("tag picker closes after a selection", async () => {
-    render(<FileRow file={baseFile} isSelected={false} onClick={() => {}} />);
+    render(<FileRow file={baseFile} isSelected={false} originalIndex={0} />);
     await userEvent.pointer({
       target: screen.getByTestId("file-row"),
       keys: "[MouseRight]",
@@ -219,7 +218,7 @@ describe("FileRow — right-click color tagging", () => {
 
 describe("FileRow — analysis columns", () => {
   test("BPM column shows — when bpm is undefined", () => {
-    render(<FileRow file={baseFile} isSelected={false} onClick={() => {}} />);
+    render(<FileRow file={baseFile} isSelected={false} originalIndex={0} />);
     expect(screen.getByTestId("col-bpm").textContent).toBe("—");
   });
 
@@ -228,14 +227,14 @@ describe("FileRow — analysis columns", () => {
       <FileRow
         file={{ ...baseFile, bpm: 120.5 }}
         isSelected={false}
-        onClick={() => {}}
+        originalIndex={0}
       />,
     );
     expect(screen.getByTestId("col-bpm").textContent).toBe("121");
   });
 
   test("key column shows — when keyCamelot is undefined", () => {
-    render(<FileRow file={baseFile} isSelected={false} onClick={() => {}} />);
+    render(<FileRow file={baseFile} isSelected={false} originalIndex={0} />);
     expect(screen.getByTestId("col-key").textContent).toBe("—");
   });
 
@@ -244,14 +243,14 @@ describe("FileRow — analysis columns", () => {
       <FileRow
         file={{ ...baseFile, keyCamelot: "8A" }}
         isSelected={false}
-        onClick={() => {}}
+        originalIndex={0}
       />,
     );
     expect(screen.getByTestId("col-key").textContent).toBe("8A");
   });
 
   test("LUFS column shows — when lufsIntegrated is undefined", () => {
-    render(<FileRow file={baseFile} isSelected={false} onClick={() => {}} />);
+    render(<FileRow file={baseFile} isSelected={false} originalIndex={0} />);
     expect(screen.getByTestId("col-lufs").textContent).toBe("—");
   });
 
@@ -260,7 +259,7 @@ describe("FileRow — analysis columns", () => {
       <FileRow
         file={{ ...baseFile, lufsIntegrated: -14.3 }}
         isSelected={false}
-        onClick={() => {}}
+        originalIndex={0}
       />,
     );
     expect(screen.getByTestId("col-lufs").textContent).toBe("-14");
@@ -273,7 +272,7 @@ describe("FileRow — scanning indicator", () => {
       ...useAnalysisStore.getState(),
       fileStatuses: { "cid-kick": "queued" },
     });
-    render(<FileRow file={baseFile} isSelected={false} onClick={() => {}} />);
+    render(<FileRow file={baseFile} isSelected={false} originalIndex={0} />);
     expect(screen.getByTestId("scanning-indicator")).toBeDefined();
   });
 
@@ -282,12 +281,12 @@ describe("FileRow — scanning indicator", () => {
       ...useAnalysisStore.getState(),
       fileStatuses: { "cid-kick": "done" },
     });
-    render(<FileRow file={baseFile} isSelected={false} onClick={() => {}} />);
+    render(<FileRow file={baseFile} isSelected={false} originalIndex={0} />);
     expect(screen.queryByTestId("scanning-indicator")).toBeNull();
   });
 
   test("does not show scanning indicator when status is absent", () => {
-    render(<FileRow file={baseFile} isSelected={false} onClick={() => {}} />);
+    render(<FileRow file={baseFile} isSelected={false} originalIndex={0} />);
     expect(screen.queryByTestId("scanning-indicator")).toBeNull();
   });
 
@@ -296,12 +295,12 @@ describe("FileRow — scanning indicator", () => {
       ...useAnalysisStore.getState(),
       fileStatuses: { "cid-kick": "queued" },
     });
-    render(<FileRow file={baseFile} isSelected={false} onClick={() => {}} />);
+    render(<FileRow file={baseFile} isSelected={false} originalIndex={0} />);
     expect(screen.getByTestId("file-name").className).toContain("opacity");
   });
 
   test("filename is not dimmed when not scanning", () => {
-    render(<FileRow file={baseFile} isSelected={false} onClick={() => {}} />);
+    render(<FileRow file={baseFile} isSelected={false} originalIndex={0} />);
     expect(screen.getByTestId("file-name").className).not.toContain("opacity");
   });
 
@@ -310,21 +309,22 @@ describe("FileRow — scanning indicator", () => {
       ...useAnalysisStore.getState(),
       fileStatuses: { "cid-kick": "queued" },
     });
-    const onClick = vi.fn();
-    render(<FileRow file={baseFile} isSelected={false} onClick={onClick} />);
+    const setSelectedIndex = vi.fn();
+    useBrowserStore.setState((s) => ({ ...s, setSelectedIndex }));
+    render(<FileRow file={baseFile} isSelected={false} originalIndex={0} />);
     await userEvent.click(screen.getByTestId("file-row"));
-    expect(onClick).not.toHaveBeenCalled();
+    expect(setSelectedIndex).not.toHaveBeenCalled();
   });
 });
 
 describe("FileRow — star rating", () => {
   test("renders 5 star buttons", () => {
-    render(<FileRow file={baseFile} isSelected={false} onClick={() => {}} />);
+    render(<FileRow file={baseFile} isSelected={false} originalIndex={0} />);
     expect(screen.getAllByTestId(/^star-\d$/).length).toBe(5);
   });
 
   test("file with no rating shows all stars empty", () => {
-    render(<FileRow file={baseFile} isSelected={false} onClick={() => {}} />);
+    render(<FileRow file={baseFile} isSelected={false} originalIndex={0} />);
     for (let i = 1; i <= 5; i++) {
       expect(screen.getByTestId(`star-${i}`).dataset.filled).toBe("false");
     }
@@ -335,7 +335,7 @@ describe("FileRow — star rating", () => {
       <FileRow
         file={{ ...baseFile, rating: 3 }}
         isSelected={false}
-        onClick={() => {}}
+        originalIndex={0}
       />,
     );
     for (let i = 1; i <= 3; i++) {
@@ -347,7 +347,7 @@ describe("FileRow — star rating", () => {
   });
 
   test("clicking star 4 calls dbSetRating with value 4", async () => {
-    render(<FileRow file={baseFile} isSelected={false} onClick={() => {}} />);
+    render(<FileRow file={baseFile} isSelected={false} originalIndex={0} />);
     await userEvent.click(screen.getByTestId("star-4"));
     expect(mockDbSetRating).toHaveBeenCalledWith({
       compositeId: baseFile.compositeId,
@@ -360,7 +360,7 @@ describe("FileRow — star rating", () => {
       <FileRow
         file={{ ...baseFile, rating: 4 }}
         isSelected={false}
-        onClick={() => {}}
+        originalIndex={0}
       />,
     );
     await userEvent.click(screen.getByTestId("star-4"));
