@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { resolveTokens } from "./tokenRenamer";
 
 export interface ResolveOptions {
   original: string; // basename WITHOUT extension
@@ -14,16 +15,17 @@ export interface ResolveOptions {
  * `original` should be the file's base name WITHOUT its extension —
  * the caller appends the extension when building the final filename.
  *
+ * Delegates to `resolveTokens` in tokenRenamer.ts — the canonical superset.
  * Known tokens: {original}, {bpm}, {key}, {key_camelot}
  * Unknown tokens are left as literal text (e.g. `{notes}` stays `{notes}`).
  */
 export function resolvePattern(pattern: string, opts: ResolveOptions): string {
-  const { original, bpm, key, keyCamelot } = opts;
-  return pattern
-    .replace(/\{original\}/g, original)
-    .replace(/\{bpm\}/g, bpm != null ? String(Math.round(bpm)) : "{bpm}")
-    .replace(/\{key\}/g, key ?? "{key}")
-    .replace(/\{key_camelot\}/g, keyCamelot ?? "{key_camelot}");
+  return resolveTokens(pattern, {
+    original: opts.original,
+    bpm: opts.bpm,
+    key: opts.key,
+    keyCamelot: opts.keyCamelot,
+  });
 }
 
 export interface DragCopyOptions {
