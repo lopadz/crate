@@ -4,7 +4,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { createQueryHelpers, initSchema } from "./db";
-import { copyFiles } from "./fileOps";
+import { copyFiles, getOperationsLog, renameFiles, undoOperation } from "./fileOps";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -116,5 +116,199 @@ describe("copyFiles", () => {
     await copyFiles([{ sourcePath: src, destPath: dest, overwrite: true }], db);
 
     expect(fs.readFileSync(dest, "utf8")).toBe("new-content");
+  });
+});
+
+// ── renameFiles ───────────────────────────────────────────────────────────────
+
+describe("renameFiles", () => {
+  let db: ReturnType<typeof makeDb>;
+  const created: string[] = [];
+
+  beforeEach(() => {
+    db = makeDb();
+  });
+
+  afterEach(() => {
+    for (const p of created) {
+      try {
+        fs.rmSync(p, { force: true });
+      } catch {
+        // ignore
+      }
+    }
+    created.length = 0;
+  });
+
+  test("moves the file to the new path", async () => {
+    const src = tmpFile("ren1.wav", "data");
+    const dest = path.join(os.tmpdir(), `crate-test-ren1-new-${Date.now()}.wav`);
+    created.push(src, dest);
+
+    await renameFiles([{ originalPath: src, newPath: dest }], db);
+
+    expect(fs.existsSync(dest)).toBe(true);
+  });
+
+  test("original path no longer exists after rename", async () => {
+    const src = tmpFile("ren2.wav", "data");
+    const dest = path.join(os.tmpdir(), `crate-test-ren2-new-${Date.now()}.wav`);
+    created.push(src, dest);
+
+    await renameFiles([{ originalPath: src, newPath: dest }], db);
+
+    expect(fs.existsSync(src)).toBe(false);
+  });
+
+  test("new path has the same content as the original", async () => {
+    const src = tmpFile("ren3.wav", "my-audio");
+    const dest = path.join(os.tmpdir(), `crate-test-ren3-new-${Date.now()}.wav`);
+    created.push(src, dest);
+
+    await renameFiles([{ originalPath: src, newPath: dest }], db);
+
+    expect(fs.readFileSync(dest, "utf8")).toBe("my-audio");
+  });
+
+  test("returns OperationRecord with operation 'rename', originalPath, newPath", async () => {
+    const src = tmpFile("ren4.wav");
+    const dest = path.join(os.tmpdir(), `crate-test-ren4-new-${Date.now()}.wav`);
+    created.push(src, dest);
+
+    const record = await renameFiles([{ originalPath: src, newPath: dest }], db);
+
+    expect(record.operation).toBe("rename");
+    expect(record.files[0].originalPath).toBe(src);
+    expect(record.files[0].newPath).toBe(dest);
+  });
+
+  test("log entry is persisted with rolledBackAt null", async () => {
+    const src = tmpFile("ren5.wav");
+    const dest = path.join(os.tmpdir(), `crate-test-ren5-new-${Date.now()}.wav`);
+    created.push(src, dest);
+
+    await renameFiles([{ originalPath: src, newPath: dest }], db);
+
+    const log = db.getOperationsLog();
+    expect(log[0].operation).toBe("rename");
+    expect(log[0].rolled_back_at).toBeNull();
+  });
+});
+
+// ── undoOperation ─────────────────────────────────────────────────────────────
+
+describe("undoOperation", () => {
+  let db: ReturnType<typeof makeDb>;
+  const created: string[] = [];
+
+  beforeEach(() => {
+    db = makeDb();
+  });
+
+  afterEach(() => {
+    for (const p of created) {
+      try {
+        fs.rmSync(p, { force: true });
+      } catch {
+        // ignore
+      }
+    }
+    created.length = 0;
+  });
+
+  test("undo rename restores the original filename", async () => {
+    const src = tmpFile("undo1.wav", "content");
+    const dest = path.join(os.tmpdir(), `crate-test-undo1-new-${Date.now()}.wav`);
+    created.push(src, dest);
+
+    const record = await renameFiles([{ originalPath: src, newPath: dest }], db);
+    await undoOperation(record, db);
+
+    expect(fs.existsSync(src)).toBe(true);
+  });
+
+  test("after undo rename, newPath no longer exists", async () => {
+    const src = tmpFile("undo2.wav");
+    const dest = path.join(os.tmpdir(), `crate-test-undo2-new-${Date.now()}.wav`);
+    created.push(src, dest);
+
+    const record = await renameFiles([{ originalPath: src, newPath: dest }], db);
+    await undoOperation(record, db);
+
+    expect(fs.existsSync(dest)).toBe(false);
+  });
+
+  test("undoOperation sets rolled_back_at in the DB", async () => {
+    const src = tmpFile("undo3.wav");
+    const dest = path.join(os.tmpdir(), `crate-test-undo3-new-${Date.now()}.wav`);
+    created.push(src, dest);
+
+    const record = await renameFiles([{ originalPath: src, newPath: dest }], db);
+    await undoOperation(record, db);
+
+    const log = db.getOperationsLog();
+    expect(log[0].rolled_back_at).not.toBeNull();
+  });
+
+  test("undo copy deletes newPath; originalPath is untouched", async () => {
+    const src = tmpFile("undo4.wav", "original");
+    const dest = path.join(os.tmpdir(), `crate-test-undo4-copy-${Date.now()}.wav`);
+    created.push(src, dest);
+
+    const record = await copyFiles([{ sourcePath: src, destPath: dest }], db);
+    await undoOperation(record, db);
+
+    expect(fs.existsSync(dest)).toBe(false);
+    expect(fs.existsSync(src)).toBe(true);
+    expect(fs.readFileSync(src, "utf8")).toBe("original");
+  });
+});
+
+// ── getOperationsLog ──────────────────────────────────────────────────────────
+
+describe("getOperationsLog (fileOps)", () => {
+  let db: ReturnType<typeof makeDb>;
+  const created: string[] = [];
+
+  beforeEach(() => {
+    db = makeDb();
+  });
+
+  afterEach(() => {
+    for (const p of created) {
+      try {
+        fs.rmSync(p, { force: true });
+      } catch {
+        // ignore
+      }
+    }
+    created.length = 0;
+  });
+
+  test("returns records in reverse-chronological order (newest first)", async () => {
+    const src1 = tmpFile("log1.wav");
+    const dest1 = path.join(os.tmpdir(), `crate-test-log1-new-${Date.now()}.wav`);
+    const src2 = tmpFile("log2.wav");
+    const dest2 = path.join(os.tmpdir(), `crate-test-log2-copy-${Date.now()}.wav`);
+    created.push(src1, dest1, src2, dest2);
+
+    await renameFiles([{ originalPath: src1, newPath: dest1 }], db);
+    await copyFiles([{ sourcePath: dest1, destPath: dest2 }], db);
+
+    const log = getOperationsLog(db);
+    expect(log[0].operation).toBe("copy");
+    expect(log[1].operation).toBe("rename");
+  });
+
+  test("excludes entries where rolled_back_at is set", async () => {
+    const src = tmpFile("log3.wav");
+    const dest = path.join(os.tmpdir(), `crate-test-log3-new-${Date.now()}.wav`);
+    created.push(src, dest);
+
+    const record = await renameFiles([{ originalPath: src, newPath: dest }], db);
+    await undoOperation(record, db);
+
+    const log = getOperationsLog(db);
+    expect(log.length).toBe(0);
   });
 });
