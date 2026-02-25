@@ -16,17 +16,12 @@ function getNeighbors(fileList: AudioFile[], index: number): AudioFile[] {
   return [fileList[index - 1], fileList[index + 1]].filter(Boolean);
 }
 
-function findNextSelectable(
-  fileList: AudioFile[],
-  fromIndex: number,
-  direction: 1 | -1,
-): number {
+function findNextSelectable(fileList: AudioFile[], fromIndex: number, direction: 1 | -1): number {
   const { fileStatuses } = useAnalysisStore.getState();
   let idx = fromIndex + direction;
   while (idx >= 0 && idx < fileList.length) {
     const f = fileList[idx];
-    if ((f.compositeId ? fileStatuses[f.compositeId] : undefined) !== "queued")
-      return idx;
+    if ((f.compositeId ? fileStatuses[f.compositeId] : undefined) !== "queued") return idx;
     idx += direction;
   }
   return fromIndex;
@@ -37,14 +32,9 @@ export function useKeyboardNav(): void {
     const handleKey = (e: KeyboardEvent) => {
       // Don't intercept when user is typing
       const target = e.target as HTMLElement;
-      if (
-        target instanceof HTMLInputElement ||
-        target instanceof HTMLTextAreaElement
-      )
-        return;
+      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) return;
 
-      const { fileList, selectedIndex, setSelectedIndex } =
-        useBrowserStore.getState();
+      const { fileList, selectedIndex, setSelectedIndex } = useBrowserStore.getState();
       const { isPlaying, currentFile } = usePlaybackStore.getState();
       const { autoplay } = useSettingsStore.getState();
 
@@ -56,8 +46,7 @@ export function useKeyboardNav(): void {
             setSelectedIndex(nextIdx);
             if (autoplay) {
               const nextFile = fileList[nextIdx];
-              if (nextFile)
-                audioEngine.play(nextFile, getNeighbors(fileList, nextIdx));
+              if (nextFile) audioEngine.play(nextFile, getNeighbors(fileList, nextIdx));
             }
           }
           break;
@@ -71,8 +60,7 @@ export function useKeyboardNav(): void {
             setSelectedIndex(prevIdx);
             if (autoplay) {
               const prevFile = fileList[prevIdx];
-              if (prevFile)
-                audioEngine.play(prevFile, getNeighbors(fileList, prevIdx));
+              if (prevFile) audioEngine.play(prevFile, getNeighbors(fileList, prevIdx));
             }
           }
           break;
@@ -87,8 +75,7 @@ export function useKeyboardNav(): void {
             const file = fileList[selectedIndex] ?? currentFile;
             if (file) {
               if (isMidi(file)) midiEngine.play(file);
-              else
-                audioEngine.play(file, getNeighbors(fileList, selectedIndex));
+              else audioEngine.play(file, getNeighbors(fileList, selectedIndex));
             }
           }
           break;
@@ -118,13 +105,7 @@ export function useKeyboardNav(): void {
           const tagFile = fileList[selectedIndex];
           if (!tagFile?.compositeId) break;
           const color: TagColor =
-            e.key === "g"
-              ? "green"
-              : e.key === "y"
-                ? "yellow"
-                : e.key === "r"
-                  ? "red"
-                  : null;
+            e.key === "g" ? "green" : e.key === "y" ? "yellow" : e.key === "r" ? "red" : null;
           useBrowserStore.getState().setColorTag(tagFile.compositeId, color);
           rpcClient?.send.dbSetColorTag({
             compositeId: tagFile.compositeId,

@@ -24,9 +24,7 @@ function r16(buf: Uint8Array, o: number): number {
   return buf[o] | (buf[o + 1] << 8);
 }
 function r32(buf: Uint8Array, o: number): number {
-  return (
-    (buf[o] | (buf[o + 1] << 8) | (buf[o + 2] << 16) | (buf[o + 3] << 24)) >>> 0
-  );
+  return (buf[o] | (buf[o + 1] << 8) | (buf[o + 2] << 16) | (buf[o + 3] << 24)) >>> 0;
 }
 
 function decodeWav(buffer: ArrayBuffer): WavData | null {
@@ -54,12 +52,7 @@ function decodeWav(buffer: ArrayBuffer): WavData | null {
 
   let offset = 12;
   while (offset + 8 <= buf.length) {
-    const id = String.fromCharCode(
-      buf[offset],
-      buf[offset + 1],
-      buf[offset + 2],
-      buf[offset + 3],
-    );
+    const id = String.fromCharCode(buf[offset], buf[offset + 1], buf[offset + 2], buf[offset + 3]);
     const size = r32(buf, offset + 4);
     offset += 8;
 

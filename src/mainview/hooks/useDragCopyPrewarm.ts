@@ -13,10 +13,7 @@ interface PrewarmEntry {
 let cache: PrewarmEntry | null = null;
 
 /** Returns the pre-warmed temp path if compositeId + pattern match, else null. */
-export function getPrewarmedPath(
-  compositeId: string,
-  pattern: string,
-): string | null {
+export function getPrewarmedPath(compositeId: string, pattern: string): string | null {
   if (cache?.compositeId === compositeId && cache?.pattern === pattern) {
     return cache.tempPath;
   }

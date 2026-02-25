@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import * as fs from "fs";
-import * as os from "os";
-import * as path from "path";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import { createDragCopy, resolvePattern } from "./dragDrop";
 
 // ── resolvePattern ────────────────────────────────────────────────────────────
@@ -28,9 +28,7 @@ describe("resolvePattern", () => {
   });
 
   test("unknown tokens are left as literal text", () => {
-    expect(resolvePattern("{unknown}_{original}", { original: "kick" })).toBe(
-      "{unknown}_kick",
-    );
+    expect(resolvePattern("{unknown}_{original}", { original: "kick" })).toBe("{unknown}_kick");
   });
 
   test("{original} alone leaves the base name unchanged", () => {
@@ -38,15 +36,11 @@ describe("resolvePattern", () => {
   });
 
   test("missing bpm leaves {bpm} token as-is", () => {
-    expect(resolvePattern("{bpm}_{original}", { original: "kick" })).toBe(
-      "{bpm}_kick",
-    );
+    expect(resolvePattern("{bpm}_{original}", { original: "kick" })).toBe("{bpm}_kick");
   });
 
   test("null bpm leaves {bpm} token as-is", () => {
-    expect(
-      resolvePattern("{bpm}_{original}", { original: "kick", bpm: null }),
-    ).toBe("{bpm}_kick");
+    expect(resolvePattern("{bpm}_{original}", { original: "kick", bpm: null })).toBe("{bpm}_kick");
   });
 
   test("bpm is rounded to nearest integer", () => {

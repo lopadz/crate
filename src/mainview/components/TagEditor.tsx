@@ -9,11 +9,7 @@ interface TagEditorProps {
   allTags: Tag[];
 }
 
-export function TagEditor({
-  compositeId,
-  initialTags,
-  allTags,
-}: TagEditorProps) {
+export function TagEditor({ compositeId, initialTags, allTags }: TagEditorProps) {
   const [tags, setTags] = useState<Tag[]>(initialTags);
 
   function handleRemove(tagId: number) {

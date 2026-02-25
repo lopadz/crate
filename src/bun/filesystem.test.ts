@@ -1,8 +1,15 @@
-import { describe, test, expect } from "bun:test";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { describe, expect, test } from "bun:test";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { isAudioFile, readdir, listDirs, watchDirectory, scanFolderRecursive, AUDIO_EXTENSIONS } from "./filesystem";
+import {
+  AUDIO_EXTENSIONS,
+  isAudioFile,
+  listDirs,
+  readdir,
+  scanFolderRecursive,
+  watchDirectory,
+} from "./filesystem";
 
 function makeTempDir(files: string[]) {
   const dir = mkdtempSync(join(tmpdir(), "crate-test-"));
@@ -15,8 +22,16 @@ function makeTempDir(files: string[]) {
 describe("AUDIO_EXTENSIONS", () => {
   test("includes all required extensions", () => {
     for (const ext of [
-      ".wav", ".mp3", ".aiff", ".aif", ".flac",
-      ".ogg", ".m4a", ".opus", ".mid", ".midi",
+      ".wav",
+      ".mp3",
+      ".aiff",
+      ".aif",
+      ".flac",
+      ".ogg",
+      ".m4a",
+      ".opus",
+      ".mid",
+      ".midi",
     ]) {
       expect(AUDIO_EXTENSIONS.has(ext)).toBe(true);
     }
@@ -28,8 +43,16 @@ describe("AUDIO_EXTENSIONS", () => {
 describe("isAudioFile", () => {
   test("returns true for all supported audio extensions", () => {
     for (const name of [
-      "kick.wav", "loop.mp3", "pad.aiff", "bass.aif", "beat.flac",
-      "atmo.ogg", "seq.m4a", "lead.opus", "piano.mid", "drums.midi",
+      "kick.wav",
+      "loop.mp3",
+      "pad.aiff",
+      "bass.aif",
+      "beat.flac",
+      "atmo.ogg",
+      "seq.m4a",
+      "lead.opus",
+      "piano.mid",
+      "drums.midi",
     ]) {
       expect(isAudioFile(name)).toBe(true);
     }
@@ -89,8 +112,16 @@ describe("readdir", () => {
 
   test("accepts all supported extensions", async () => {
     const audioFiles = [
-      "a.wav", "b.mp3", "c.aiff", "d.aif", "e.flac",
-      "f.ogg", "g.m4a", "h.opus", "i.mid", "j.midi",
+      "a.wav",
+      "b.mp3",
+      "c.aiff",
+      "d.aif",
+      "e.flac",
+      "f.ogg",
+      "g.m4a",
+      "h.opus",
+      "i.mid",
+      "j.midi",
     ];
     const { dir, cleanup } = makeTempDir([...audioFiles, "z.txt"]);
     try {
@@ -222,7 +253,9 @@ describe("scanFolderRecursive", () => {
     const { dir, cleanup } = makeTempDir(["kick.wav"]);
     try {
       let captured: Parameters<Parameters<typeof scanFolderRecursive>[1]>[0] = [];
-      await scanFolderRecursive(dir, (files) => { captured = files; });
+      await scanFolderRecursive(dir, (files) => {
+        captured = files;
+      });
       const [f] = captured;
       expect(f.name).toBe("kick.wav");
       expect(f.extension).toBe(".wav");

@@ -3,13 +3,11 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import type { Tag } from "../../shared/types";
 
-const { mockDbAddFileTag, mockDbRemoveFileTag, mockDbCreateTag } = vi.hoisted(
-  () => ({
-    mockDbAddFileTag: vi.fn(),
-    mockDbCreateTag: vi.fn(),
-    mockDbRemoveFileTag: vi.fn(),
-  }),
-);
+const { mockDbAddFileTag, mockDbRemoveFileTag, mockDbCreateTag } = vi.hoisted(() => ({
+  mockDbAddFileTag: vi.fn(),
+  mockDbCreateTag: vi.fn(),
+  mockDbRemoveFileTag: vi.fn(),
+}));
 
 vi.mock("../rpc", () => ({
   rpcClient: {
@@ -37,28 +35,18 @@ beforeEach(() => {
 
 describe("TagEditor — chips", () => {
   test("renders a chip for each initial tag", () => {
-    render(
-      <TagEditor
-        compositeId="cid-1"
-        initialTags={[tag1, tag2]}
-        allTags={allTags}
-      />,
-    );
+    render(<TagEditor compositeId="cid-1" initialTags={[tag1, tag2]} allTags={allTags} />);
     expect(screen.getByTestId("tag-chip-1")).toBeDefined();
     expect(screen.getByTestId("tag-chip-2")).toBeDefined();
   });
 
   test("chip shows tag name", () => {
-    render(
-      <TagEditor compositeId="cid-1" initialTags={[tag1]} allTags={allTags} />,
-    );
+    render(<TagEditor compositeId="cid-1" initialTags={[tag1]} allTags={allTags} />);
     expect(screen.getByText("drums")).toBeDefined();
   });
 
   test("clicking × on a chip calls dbRemoveFileTag", async () => {
-    render(
-      <TagEditor compositeId="cid-1" initialTags={[tag1]} allTags={allTags} />,
-    );
+    render(<TagEditor compositeId="cid-1" initialTags={[tag1]} allTags={allTags} />);
     await userEvent.click(screen.getByTestId("tag-chip-remove-1"));
     expect(mockDbRemoveFileTag).toHaveBeenCalledWith({
       compositeId: "cid-1",
@@ -67,9 +55,7 @@ describe("TagEditor — chips", () => {
   });
 
   test("removed tag's chip disappears from the UI", async () => {
-    render(
-      <TagEditor compositeId="cid-1" initialTags={[tag1]} allTags={allTags} />,
-    );
+    render(<TagEditor compositeId="cid-1" initialTags={[tag1]} allTags={allTags} />);
     await userEvent.click(screen.getByTestId("tag-chip-remove-1"));
     expect(screen.queryByTestId("tag-chip-1")).toBeNull();
   });
@@ -77,16 +63,12 @@ describe("TagEditor — chips", () => {
 
 describe("TagEditor — adding tags", () => {
   test("renders the tag search input", () => {
-    render(
-      <TagEditor compositeId="cid-1" initialTags={[]} allTags={allTags} />,
-    );
+    render(<TagEditor compositeId="cid-1" initialTags={[]} allTags={allTags} />);
     expect(screen.getByTestId("tag-search-input")).toBeDefined();
   });
 
   test("selecting a tag from search calls dbAddFileTag", async () => {
-    render(
-      <TagEditor compositeId="cid-1" initialTags={[]} allTags={allTags} />,
-    );
+    render(<TagEditor compositeId="cid-1" initialTags={[]} allTags={allTags} />);
     await userEvent.type(screen.getByTestId("tag-search-input"), "d");
     await userEvent.click(screen.getByText("drums"));
     expect(mockDbAddFileTag).toHaveBeenCalledWith({
@@ -96,9 +78,7 @@ describe("TagEditor — adding tags", () => {
   });
 
   test("selected tag chip appears in the UI", async () => {
-    render(
-      <TagEditor compositeId="cid-1" initialTags={[]} allTags={allTags} />,
-    );
+    render(<TagEditor compositeId="cid-1" initialTags={[]} allTags={allTags} />);
     await userEvent.type(screen.getByTestId("tag-search-input"), "d");
     await userEvent.click(screen.getByText("drums"));
     expect(screen.getByTestId("tag-chip-1")).toBeDefined();
@@ -108,9 +88,7 @@ describe("TagEditor — adding tags", () => {
     const newTag: Tag = { id: 99, name: "newstyle", color: null, sortOrder: 0 };
     mockDbCreateTag.mockResolvedValue(newTag);
 
-    render(
-      <TagEditor compositeId="cid-1" initialTags={[]} allTags={allTags} />,
-    );
+    render(<TagEditor compositeId="cid-1" initialTags={[]} allTags={allTags} />);
     await userEvent.type(screen.getByTestId("tag-search-input"), "newstyle");
     await userEvent.click(screen.getByTestId("tag-search-create"));
 

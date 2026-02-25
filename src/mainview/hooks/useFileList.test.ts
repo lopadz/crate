@@ -31,9 +31,7 @@ beforeEach(() => {
     queueStatus: { pending: 0, running: 0, total: 0 },
     fileStatuses: {},
   });
-  (rpcClient?.request.fsReaddir as ReturnType<typeof vi.fn>).mockResolvedValue(
-    [],
-  );
+  (rpcClient?.request.fsReaddir as ReturnType<typeof vi.fn>).mockResolvedValue([]);
 });
 
 describe("useFileList", () => {
@@ -64,17 +62,13 @@ describe("useFileList", () => {
         size: 1000,
       },
     ];
-    (
-      rpcClient?.request.fsReaddir as ReturnType<typeof vi.fn>
-    ).mockResolvedValue(mockFiles);
+    (rpcClient?.request.fsReaddir as ReturnType<typeof vi.fn>).mockResolvedValue(mockFiles);
     useBrowserStore.setState({
       ...useBrowserStore.getState(),
       activeFolder: "/Samples",
     });
     renderHook(() => useFileList());
-    await waitFor(() =>
-      expect(useBrowserStore.getState().fileList).toEqual(mockFiles),
-    );
+    await waitFor(() => expect(useBrowserStore.getState().fileList).toEqual(mockFiles));
   });
 
   test("starts directory watch when folder is active", async () => {
@@ -96,9 +90,7 @@ describe("useFileList", () => {
       activeFolder: "/Samples",
     });
     const { unmount } = renderHook(() => useFileList());
-    await waitFor(() =>
-      expect(rpcClient?.send.fsStartWatch).toHaveBeenCalled(),
-    );
+    await waitFor(() => expect(rpcClient?.send.fsStartWatch).toHaveBeenCalled());
     unmount();
     expect(rpcClient?.send.fsStopWatch).toHaveBeenCalledWith({
       path: "/Samples",
@@ -120,17 +112,13 @@ describe("useFileList", () => {
         compositeId: "cid-a",
       },
     ];
-    (
-      rpcClient?.request.fsReaddir as ReturnType<typeof vi.fn>
-    ).mockResolvedValue(mockFiles);
+    (rpcClient?.request.fsReaddir as ReturnType<typeof vi.fn>).mockResolvedValue(mockFiles);
     useBrowserStore.setState({
       ...useBrowserStore.getState(),
       activeFolder: "/S",
     });
     renderHook(() => useFileList());
-    await waitFor(() =>
-      expect(useAnalysisStore.getState().fileStatuses["cid-a"]).toBe("done"),
-    );
+    await waitFor(() => expect(useAnalysisStore.getState().fileStatuses["cid-a"]).toBe("done"));
     unsub();
     expect(history).toContain("queued");
     expect(history[history.length - 1]).toBe("done");
@@ -152,17 +140,13 @@ describe("useFileList", () => {
         lufsIntegrated: -14,
       },
     ];
-    (
-      rpcClient?.request.fsReaddir as ReturnType<typeof vi.fn>
-    ).mockResolvedValue(mockFiles);
+    (rpcClient?.request.fsReaddir as ReturnType<typeof vi.fn>).mockResolvedValue(mockFiles);
     useBrowserStore.setState({
       ...useBrowserStore.getState(),
       activeFolder: "/S",
     });
     renderHook(() => useFileList());
-    await waitFor(() =>
-      expect(useAnalysisStore.getState().fileStatuses["cid-b"]).toBe("done"),
-    );
+    await waitFor(() => expect(useAnalysisStore.getState().fileStatuses["cid-b"]).toBe("done"));
     unsub();
     expect(history).not.toContain("queued");
   });
@@ -171,19 +155,13 @@ describe("useFileList", () => {
     const mockFiles: AudioFile[] = [
       { path: "/S/c.wav", name: "c.wav", extension: ".wav", size: 100 },
     ];
-    (
-      rpcClient?.request.fsReaddir as ReturnType<typeof vi.fn>
-    ).mockResolvedValue(mockFiles);
+    (rpcClient?.request.fsReaddir as ReturnType<typeof vi.fn>).mockResolvedValue(mockFiles);
     useBrowserStore.setState({
       ...useBrowserStore.getState(),
       activeFolder: "/S",
     });
     renderHook(() => useFileList());
-    await waitFor(() =>
-      expect(useBrowserStore.getState().fileList).toEqual(mockFiles),
-    );
-    expect(Object.keys(useAnalysisStore.getState().fileStatuses)).toHaveLength(
-      0,
-    );
+    await waitFor(() => expect(useBrowserStore.getState().fileList).toEqual(mockFiles));
+    expect(Object.keys(useAnalysisStore.getState().fileStatuses)).toHaveLength(0);
   });
 });

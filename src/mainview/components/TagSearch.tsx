@@ -8,12 +8,7 @@ interface TagSearchProps {
   onCreate: (name: string) => void;
 }
 
-export function TagSearch({
-  allTags,
-  excludeIds = [],
-  onSelect,
-  onCreate,
-}: TagSearchProps) {
+export function TagSearch({ allTags, excludeIds = [], onSelect, onCreate }: TagSearchProps) {
   const [value, setValue] = useState("");
 
   const trimmed = value.trim();
@@ -21,13 +16,9 @@ export function TagSearch({
   const filtered =
     trimmed === ""
       ? []
-      : available.filter((t) =>
-          t.name.toLowerCase().includes(trimmed.toLowerCase()),
-        );
+      : available.filter((t) => t.name.toLowerCase().includes(trimmed.toLowerCase()));
 
-  const hasExactMatch = available.some(
-    (t) => t.name.toLowerCase() === trimmed.toLowerCase(),
-  );
+  const hasExactMatch = available.some((t) => t.name.toLowerCase() === trimmed.toLowerCase());
   const showCreate = trimmed !== "" && !hasExactMatch;
   const isOpen = filtered.length > 0 || showCreate;
 

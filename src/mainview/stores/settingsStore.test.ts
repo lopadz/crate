@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach } from "vitest";
+import { beforeEach, describe, expect, test } from "vitest";
 import { useSettingsStore } from "./settingsStore";
 
 beforeEach(() => {
@@ -21,9 +21,9 @@ describe("settingsStore — pinned folders", () => {
   test("addPinnedFolder is idempotent", () => {
     useSettingsStore.getState().addPinnedFolder("/Samples");
     useSettingsStore.getState().addPinnedFolder("/Samples");
-    expect(
-      useSettingsStore.getState().pinnedFolders.filter((p) => p === "/Samples"),
-    ).toHaveLength(1);
+    expect(useSettingsStore.getState().pinnedFolders.filter((p) => p === "/Samples")).toHaveLength(
+      1,
+    );
   });
 
   test("removePinnedFolder removes a path", () => {

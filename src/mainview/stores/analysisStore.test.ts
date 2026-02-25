@@ -18,9 +18,7 @@ describe("analysisStore — queue status", () => {
   });
 
   test("setQueueStatus updates counters", () => {
-    useAnalysisStore
-      .getState()
-      .setQueueStatus({ pending: 3, running: 2, total: 10 });
+    useAnalysisStore.getState().setQueueStatus({ pending: 3, running: 2, total: 10 });
     expect(useAnalysisStore.getState().queueStatus).toEqual({
       pending: 3,
       running: 2,

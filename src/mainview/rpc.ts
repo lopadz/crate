@@ -10,14 +10,10 @@ const rpc = Electroview.defineRPC<CrateRPC>({
     requests: {},
     messages: {
       fsDirectoryChanged: ({ path }) => {
-        window.dispatchEvent(
-          new CustomEvent("crate:directoryChanged", { detail: { path } }),
-        );
+        window.dispatchEvent(new CustomEvent("crate:directoryChanged", { detail: { path } }));
       },
       analysisResult: (data) => {
-        window.dispatchEvent(
-          new CustomEvent("crate:analysisResult", { detail: data }),
-        );
+        window.dispatchEvent(new CustomEvent("crate:analysisResult", { detail: data }));
       },
     },
   },

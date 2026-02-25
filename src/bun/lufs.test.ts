@@ -60,8 +60,7 @@ describe("measureLufs — loudness measurement", () => {
   test("doubling amplitude raises LUFS by approximately 6 LU", () => {
     const a = generateSine(1000, 0.2, 44100, 3);
     const b = generateSine(1000, 0.4, 44100, 3);
-    const diff =
-      measureLufs(b, 44100).integrated - measureLufs(a, 44100).integrated;
+    const diff = measureLufs(b, 44100).integrated - measureLufs(a, 44100).integrated;
     expect(diff).toBeGreaterThan(5.5);
     expect(diff).toBeLessThan(6.5);
   });
@@ -90,9 +89,7 @@ describe("measureLufs — true peak", () => {
   test("higher amplitude signal has higher truePeak", () => {
     const loud = generateSine(1000, 0.9, 44100, 1);
     const quiet = generateSine(1000, 0.3, 44100, 1);
-    expect(measureLufs(loud, 44100).truePeak).toBeGreaterThan(
-      measureLufs(quiet, 44100).truePeak,
-    );
+    expect(measureLufs(loud, 44100).truePeak).toBeGreaterThan(measureLufs(quiet, 44100).truePeak);
   });
 });
 

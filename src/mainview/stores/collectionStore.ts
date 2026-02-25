@@ -8,11 +8,7 @@ interface CollectionState {
   activeCollectionId: number | null;
   loadCollections: () => Promise<void>;
   selectCollection: (id: number) => Promise<void>;
-  createCollection: (
-    name: string,
-    color: string | null,
-    queryJson: string | null,
-  ) => Promise<void>;
+  createCollection: (name: string, color: string | null, queryJson: string | null) => Promise<void>;
   deleteCollection: (id: number) => Promise<void>;
 }
 

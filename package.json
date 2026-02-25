@@ -8,9 +8,11 @@
     "hmr": "vite --port 5173",
     "build": "vite build && electrobun build",
     "build:prod": "vite build && electrobun build --channel prod",
+    "lint": "biome check src/",
+    "lint:fix": "biome check --write src/",
     "test:main": "bun test src/bun/",
     "test:ui": "vitest src/mainview/",
-    "test": "bun run test:main && bun run test:ui"
+    "test": "bun run lint && bun run test:main && bun run test:ui"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.2.0",
@@ -26,6 +28,7 @@
     "zustand": "^5.0.11"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.4",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",

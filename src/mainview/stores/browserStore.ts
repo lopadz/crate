@@ -55,8 +55,7 @@ export const useBrowserStore = create<BrowserState>((set, get) => ({
 
   setFileList: (files) =>
     set((state) => {
-      const current =
-        state.selectedIndex >= 0 ? state.fileList[state.selectedIndex] : null;
+      const current = state.selectedIndex >= 0 ? state.fileList[state.selectedIndex] : null;
       const newSelectedIndex = current
         ? files.findIndex(
             (f) =>
@@ -99,9 +98,7 @@ export const useBrowserStore = create<BrowserState>((set, get) => ({
   setRating: (compositeId, value) =>
     set((state) => ({
       fileList: state.fileList.map((f) =>
-        f.compositeId === compositeId
-          ? { ...f, rating: value === 0 ? undefined : value }
-          : f,
+        f.compositeId === compositeId ? { ...f, rating: value === 0 ? undefined : value } : f,
       ),
     })),
 

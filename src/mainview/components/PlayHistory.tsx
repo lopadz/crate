@@ -20,10 +20,7 @@ export function PlayHistory() {
   return (
     <div data-testid="play-history">
       {history.length === 0 ? (
-        <div
-          data-testid="play-history-empty"
-          className="px-4 py-1 text-xs text-gray-600 italic"
-        >
+        <div data-testid="play-history-empty" className="px-4 py-1 text-xs text-gray-600 italic">
           No recent files
         </div>
       ) : (

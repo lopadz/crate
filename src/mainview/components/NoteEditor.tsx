@@ -9,9 +9,7 @@ export function NoteEditor({ compositeId }: NoteEditorProps) {
   const [content, setContent] = useState("");
 
   useEffect(() => {
-    void rpcClient?.request
-      .dbGetNote({ compositeId })
-      .then((note) => setContent(note ?? ""));
+    void rpcClient?.request.dbGetNote({ compositeId }).then((note) => setContent(note ?? ""));
   }, [compositeId]);
 
   const handleBlur = () => {

@@ -16,7 +16,7 @@ export function Sidebar() {
 
   useEffect(() => {
     void loadCollections();
-  }, []);
+  }, [loadCollections]);
 
   return (
     <div
@@ -45,9 +45,7 @@ export function Sidebar() {
               data-testid={`collection-item-${c.id}`}
               type="button"
               className={`flex-1 text-left px-4 py-1 text-xs truncate ${
-                activeCollectionId === c.id
-                  ? "text-indigo-400"
-                  : "text-gray-400"
+                activeCollectionId === c.id ? "text-indigo-400" : "text-gray-400"
               }`}
               onClick={() => void selectCollection(c.id)}
             >
@@ -65,9 +63,7 @@ export function Sidebar() {
           </div>
         ))}
         <SmartCollectionEditor
-          onSave={(name, color, queryJson) =>
-            void createCollection(name, color, queryJson)
-          }
+          onSave={(name, color, queryJson) => void createCollection(name, color, queryJson)}
           existingNames={collections.map((c) => c.name)}
         />
       </div>

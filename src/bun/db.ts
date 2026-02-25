@@ -4,12 +4,7 @@ import { dirname, join } from "node:path";
 import type { Collection, Tag, TagColor } from "../shared/types";
 import { buildCollectionQuery } from "./collections";
 
-const DB_DIR = join(
-  process.env.HOME ?? "/tmp",
-  "Library",
-  "Application Support",
-  "Crate",
-);
+const DB_DIR = join(process.env.HOME ?? "/tmp", "Library", "Application Support", "Crate");
 export const DB_PATH = join(DB_DIR, "db.sqlite");
 
 // Individual DDL statements — each run with db.run() to avoid the deprecated
@@ -122,11 +117,7 @@ export function initSchema(db: Database): void {
   }
 }
 
-export function computeCompositeId(
-  filename: string,
-  duration: number,
-  sampleRate: number,
-): string {
+export function computeCompositeId(filename: string, duration: number, sampleRate: number): string {
   const hasher = new Bun.CryptoHasher("sha256");
   hasher.update(`${filename}:${duration}:${sampleRate}`);
   return hasher.digest("hex");
@@ -178,9 +169,7 @@ export function createQueryHelpers(db: Database) {
        AND tag_id = ?`,
   );
 
-  const deleteFileTagsByTagIdStmt = db.prepare(
-    `DELETE FROM file_tags WHERE tag_id = ?`,
-  );
+  const deleteFileTagsByTagIdStmt = db.prepare(`DELETE FROM file_tags WHERE tag_id = ?`);
 
   // Syncs the tags_text column in files_fts after addFileTag / removeFileTag
   const updateFtsTagsStmt = db.prepare(
@@ -203,9 +192,7 @@ export function createQueryHelpers(db: Database) {
      ORDER BY rank`,
   );
 
-  const getNoteStmt = db.prepare(
-    `SELECT content FROM notes WHERE composite_id = ?`,
-  );
+  const getNoteStmt = db.prepare(`SELECT content FROM notes WHERE composite_id = ?`);
 
   const setNoteStmt = db.prepare(
     `INSERT INTO notes (composite_id, content, updated_at) VALUES (?, ?, ?)
@@ -229,9 +216,7 @@ export function createQueryHelpers(db: Database) {
     `SELECT id, name, color, query_json FROM collections WHERE id = ?`,
   );
 
-  const deleteCollectionStmt = db.prepare(
-    `DELETE FROM collections WHERE id = ?`,
-  );
+  const deleteCollectionStmt = db.prepare(`DELETE FROM collections WHERE id = ?`);
 
   const addToCollectionStmt = db.prepare(
     `INSERT OR IGNORE INTO collection_files (collection_id, composite_id, added_at) VALUES (?, ?, ?)`,
@@ -247,9 +232,7 @@ export function createQueryHelpers(db: Database) {
      WHERE cf.collection_id = ?`,
   );
 
-  const setColorTagStmt = db.prepare(
-    `UPDATE files SET color_tag = ? WHERE id = ?`,
-  );
+  const setColorTagStmt = db.prepare(`UPDATE files SET color_tag = ? WHERE id = ?`);
 
   const setColorTagByCompositeIdStmt = db.prepare(
     `UPDATE files SET color_tag = ? WHERE composite_id = ?`,
@@ -265,9 +248,7 @@ export function createQueryHelpers(db: Database) {
     `SELECT value FROM settings WHERE key LIKE 'pinned_folder:%'`,
   );
 
-  const pinFolderStmt = db.prepare(
-    `INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)`,
-  );
+  const pinFolderStmt = db.prepare(`INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)`);
 
   const unpinFolderStmt = db.prepare(`DELETE FROM settings WHERE key = ?`);
 
@@ -284,18 +265,14 @@ export function createQueryHelpers(db: Database) {
      LIMIT ?`,
   );
 
-  const getRatingStmt = db.prepare(
-    `SELECT value FROM ratings WHERE composite_id = ?`,
-  );
+  const getRatingStmt = db.prepare(`SELECT value FROM ratings WHERE composite_id = ?`);
 
   const setRatingStmt = db.prepare(
     `INSERT INTO ratings (composite_id, value, updated_at) VALUES (?, ?, ?)
      ON CONFLICT(composite_id) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
   );
 
-  const deleteRatingStmt = db.prepare(
-    `DELETE FROM ratings WHERE composite_id = ?`,
-  );
+  const deleteRatingStmt = db.prepare(`DELETE FROM ratings WHERE composite_id = ?`);
 
   const upsertFileStmt = db.prepare(
     `INSERT INTO files (path, composite_id, duration, format, sample_rate, key, bpm, lufs_integrated, lufs_peak, last_seen_at)
@@ -330,9 +307,7 @@ export function createQueryHelpers(db: Database) {
 
   const getSettingStmt = db.prepare(`SELECT value FROM settings WHERE key = ?`);
 
-  const setSettingStmt = db.prepare(
-    `INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)`,
-  );
+  const setSettingStmt = db.prepare(`INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)`);
 
   // Scan-time upsert: inserts a file with a path-hash placeholder composite_id.
   // On conflict, only updates last_seen_at (and fills format if missing).
@@ -351,9 +326,7 @@ export function createQueryHelpers(db: Database) {
       const now = Date.now();
       for (const f of files) {
         // extension includes the leading dot (.wav) — strip it for the format column
-        const format = f.extension.startsWith(".")
-          ? f.extension.slice(1)
-          : f.extension;
+        const format = f.extension.startsWith(".") ? f.extension.slice(1) : f.extension;
         upsertFileScanStmt.run(f.path, pathHash(f.path), format, now);
       }
     },
@@ -570,9 +543,7 @@ export function createQueryHelpers(db: Database) {
       recordPlayStmt.run(compositeId, Date.now());
     },
 
-    getPlayHistory(
-      limit: number,
-    ): Array<{ path: string; compositeId: string }> {
+    getPlayHistory(limit: number): Array<{ path: string; compositeId: string }> {
       const rows = getPlayHistoryStmt.all(limit) as Array<{
         composite_id: string;
         path: string;
@@ -639,23 +610,12 @@ export function createQueryHelpers(db: Database) {
       setSettingStmt.run(key, value);
     },
 
-    upsertFilesFromScan(
-      files: Array<{ path: string; extension: string }>,
-    ): void {
+    upsertFilesFromScan(files: Array<{ path: string; extension: string }>): void {
       upsertFilesFromScanTx(files);
     },
 
-    createCollection(
-      name: string,
-      color: string | null,
-      queryJson: string | null,
-    ): Collection {
-      const row = createCollectionStmt.get(
-        name,
-        color,
-        queryJson,
-        Date.now(),
-      ) as {
+    createCollection(name: string, color: string | null, queryJson: string | null): Collection {
+      const row = createCollectionStmt.get(name, color, queryJson, Date.now()) as {
         id: number;
         name: string;
         color: string | null;
@@ -696,9 +656,7 @@ export function createQueryHelpers(db: Database) {
       removeFromCollectionStmt.run(collectionId, compositeId);
     },
 
-    getCollectionFiles(
-      collectionId: number,
-    ): Array<{ path: string; compositeId: string }> {
+    getCollectionFiles(collectionId: number): Array<{ path: string; compositeId: string }> {
       const collection = getCollectionByIdStmt.get(collectionId) as {
         id: number;
         query_json: string | null;

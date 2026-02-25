@@ -20,6 +20,7 @@ export function TagBadge({ currentColor, onSelect }: TagBadgeProps) {
     >
       {OPTIONS.map(({ color, label, bg }) => (
         <button
+          type="button"
           key={color ?? "none"}
           data-testid={`tag-option-${color ?? "none"}`}
           className={`w-5 h-5 rounded-full text-xs font-bold text-white flex items-center justify-center ${bg} ${

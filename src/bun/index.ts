@@ -15,9 +15,7 @@ async function getMainViewUrl(): Promise<string> {
       console.log(`HMR enabled: Using Vite dev server at ${DEV_SERVER_URL}`);
       return DEV_SERVER_URL;
     } catch {
-      console.log(
-        "Vite dev server not running. Run 'bun run dev:hmr' for HMR support.",
-      );
+      console.log("Vite dev server not running. Run 'bun run dev:hmr' for HMR support.");
     }
   }
   return "views://mainview/index.html";
@@ -47,11 +45,9 @@ const mainWindow = new BrowserWindow({
   },
 });
 
-notifyDirectoryChanged = (path) =>
-  mainWindow.webview.rpc?.send.fsDirectoryChanged({ path });
+notifyDirectoryChanged = (path) => mainWindow.webview.rpc?.send.fsDirectoryChanged({ path });
 
-notifyAnalysisResult = (result) =>
-  mainWindow.webview.rpc?.send.analysisResult(result);
+notifyAnalysisResult = (result) => mainWindow.webview.rpc?.send.analysisResult(result);
 
 mainWindow.on("close", () => {
   Utils.quit();
@@ -61,9 +57,7 @@ mainWindow.on("close", () => {
 // occurred while the app was closed. Fire-and-forget; no progress push needed
 // since the renderer hasn't loaded the folder list yet.
 for (const folderPath of queries.getPinnedFolders()) {
-  void scanFolderRecursive(folderPath, (files) =>
-    queries.upsertFilesFromScan(files),
-  );
+  void scanFolderRecursive(folderPath, (files) => queries.upsertFilesFromScan(files));
 }
 
 console.log("Crate started.");

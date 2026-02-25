@@ -15,7 +15,7 @@
 // Root is at index 0; rotate by pitch class to match any key.
 
 const MAJOR_PROFILE = [6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88];
-const MINOR_PROFILE = [6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17];
+const MINOR_PROFILE = [6.33, 2.68, 3.52, 5.38, 2.6, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17];
 
 // ─── Key name tables (indexed by pitch class 0–11) ────────────────────────────
 const MAJOR_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
@@ -24,11 +24,31 @@ const MINOR_NAMES = ["Cm", "C#m", "Dm", "D#m", "Em", "Fm", "F#m", "Gm", "G#m", "
 // ─── Camelot wheel ────────────────────────────────────────────────────────────
 export const CAMELOT: Record<string, string> = {
   // Major (B = major)
-  C: "8B", G: "9B", D: "10B", A: "11B", E: "12B", B: "1B",
-  "F#": "2B", "C#": "3B", "G#": "4B", "D#": "5B", "A#": "6B", F: "7B",
+  C: "8B",
+  G: "9B",
+  D: "10B",
+  A: "11B",
+  E: "12B",
+  B: "1B",
+  "F#": "2B",
+  "C#": "3B",
+  "G#": "4B",
+  "D#": "5B",
+  "A#": "6B",
+  F: "7B",
   // Minor (A = minor)
-  Am: "8A", Em: "9A", Bm: "10A", "F#m": "11A", "C#m": "12A", "G#m": "1A",
-  "D#m": "2A", "A#m": "3A", Fm: "4A", Cm: "5A", Gm: "6A", Dm: "7A",
+  Am: "8A",
+  Em: "9A",
+  Bm: "10A",
+  "F#m": "11A",
+  "C#m": "12A",
+  "G#m": "1A",
+  "D#m": "2A",
+  "A#m": "3A",
+  Fm: "4A",
+  Cm: "5A",
+  Gm: "6A",
+  Dm: "7A",
 };
 
 export interface KeyResult {
@@ -58,8 +78,12 @@ function fft(re: Float64Array, im: Float64Array): void {
     for (; j & bit; bit >>= 1) j ^= bit;
     j ^= bit;
     if (i < j) {
-      const tr = re[i]; re[i] = re[j]; re[j] = tr;
-      const ti = im[i]; im[i] = im[j]; im[j] = ti;
+      const tr = re[i];
+      re[i] = re[j];
+      re[j] = tr;
+      const ti = im[i];
+      im[i] = im[j];
+      im[j] = ti;
     }
   }
   // Butterfly passes
@@ -107,7 +131,7 @@ function computeChroma(samples: Float32Array, sampleRate: number): Float64Array 
       const freq = bin * binWidth;
       if (freq < CHROMA_FREQ_MIN || freq > CHROMA_FREQ_MAX) continue;
       // Map frequency to pitch class: C=0 … B=11
-      const pc = (((Math.round(12 * Math.log2(freq / 16.3516))) % 12) + 12) % 12;
+      const pc = ((Math.round(12 * Math.log2(freq / 16.3516)) % 12) + 12) % 12;
       chroma[pc] += Math.sqrt(re[bin] * re[bin] + im[bin] * im[bin]);
     }
   }

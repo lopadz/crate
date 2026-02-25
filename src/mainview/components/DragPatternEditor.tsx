@@ -8,11 +8,12 @@ export function DragPatternEditor() {
 
   return (
     <div className="flex flex-col gap-2">
-      <label className="text-xs text-gray-400 uppercase tracking-wide">
+      <label htmlFor="drag-pattern-input" className="text-xs text-gray-400 uppercase tracking-wide">
         Drag rename pattern
       </label>
 
       <input
+        id="drag-pattern-input"
         data-testid="drag-pattern-input"
         type="text"
         value={dragPattern}

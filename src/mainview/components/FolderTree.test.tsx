@@ -1,6 +1,6 @@
-import { vi, describe, test, expect, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 
 vi.mock("../rpc", () => ({
   rpcClient: {
@@ -10,8 +10,8 @@ vi.mock("../rpc", () => ({
 }));
 
 import { rpcClient } from "../rpc";
-import { FolderTree } from "./FolderTree";
 import { useBrowserStore } from "../stores/browserStore";
+import { FolderTree } from "./FolderTree";
 
 // vi.mock always provides a concrete object — safe to assert non-null
 const rc = rpcClient as NonNullable<typeof rpcClient>;
@@ -106,9 +106,7 @@ describe("FolderTree — pin/unpin", () => {
   test("dialog returning empty array does not call dbPinFolder", async () => {
     render(<FolderTree />);
     await userEvent.click(screen.getByTestId("add-folder-btn"));
-    await waitFor(() =>
-      expect(rc.request.fsOpenFolderDialog).toHaveBeenCalledOnce(),
-    );
+    await waitFor(() => expect(rc.request.fsOpenFolderDialog).toHaveBeenCalledOnce());
     expect(rc.send.dbPinFolder).not.toHaveBeenCalled();
   });
 
@@ -160,9 +158,7 @@ describe("FolderTree — pin/unpin", () => {
     ]);
     render(<FolderTree />);
     await userEvent.click(screen.getByTestId("add-folder-btn"));
-    await waitFor(() =>
-      expect(useBrowserStore.getState().activeFolder).toBe("/Users/me/Samples"),
-    );
+    await waitFor(() => expect(useBrowserStore.getState().activeFolder).toBe("/Users/me/Samples"));
   });
 
   test("dialog is always called with empty params (macOS remembers location)", async () => {

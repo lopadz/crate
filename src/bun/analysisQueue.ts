@@ -8,7 +8,7 @@
  * - Worker is injected via `workerFactory` for testability
  */
 
-import { EventEmitter } from "events";
+import { EventEmitter } from "node:events";
 
 export type AnalysisPriority = "high" | "normal";
 
@@ -49,9 +49,7 @@ interface QueueItem {
 const DEFAULT_MAX_CONCURRENT = 2;
 
 function defaultWorkerFactory(): WorkerLike {
-  return new Worker(
-    new URL("./analysisWorker.ts", import.meta.url),
-  ) as unknown as WorkerLike;
+  return new Worker(new URL("./analysisWorker.ts", import.meta.url)) as unknown as WorkerLike;
 }
 
 export class AnalysisQueue extends EventEmitter {
@@ -71,11 +69,7 @@ export class AnalysisQueue extends EventEmitter {
     this.workerFactory = options?.workerFactory ?? defaultWorkerFactory;
   }
 
-  enqueue(
-    compositeId: string,
-    path: string,
-    priority: AnalysisPriority = "normal",
-  ): void {
+  enqueue(compositeId: string, path: string, priority: AnalysisPriority = "normal"): void {
     const item: QueueItem = { compositeId, path };
     if (priority === "high") {
       this.items.unshift(item);
@@ -113,10 +107,7 @@ export class AnalysisQueue extends EventEmitter {
 
     worker.onmessage = (event) => {
       this.running--;
-      const data = event.data as unknown as { type: string } & (
-        | AnalysisResult
-        | AnalysisError
-      );
+      const data = event.data as unknown as { type: string } & (AnalysisResult | AnalysisError);
       if (data.type === "RESULT") {
         this.emit("result", data as AnalysisResult);
       } else {

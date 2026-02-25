@@ -4,21 +4,16 @@ import type { AudioFile } from "../../shared/types";
 
 // ── audioEngine mock ──────────────────────────────────────────────────────────
 
-const {
-  mockPlay,
-  mockStop,
-  mockSeek,
-  mockDbSetColorTag,
-  mockMidiPlay,
-  mockMidiStop,
-} = vi.hoisted(() => ({
-  mockPlay: vi.fn().mockResolvedValue(undefined),
-  mockStop: vi.fn(),
-  mockSeek: vi.fn(),
-  mockDbSetColorTag: vi.fn(),
-  mockMidiPlay: vi.fn().mockResolvedValue(undefined),
-  mockMidiStop: vi.fn(),
-}));
+const { mockPlay, mockStop, mockSeek, mockDbSetColorTag, mockMidiPlay, mockMidiStop } = vi.hoisted(
+  () => ({
+    mockPlay: vi.fn().mockResolvedValue(undefined),
+    mockStop: vi.fn(),
+    mockSeek: vi.fn(),
+    mockDbSetColorTag: vi.fn(),
+    mockMidiPlay: vi.fn().mockResolvedValue(undefined),
+    mockMidiStop: vi.fn(),
+  }),
+);
 
 vi.mock("../services/audioEngine", () => ({
   audioEngine: { play: mockPlay, stop: mockStop, seek: mockSeek },
@@ -209,9 +204,7 @@ describe("useKeyboardNav", () => {
     const input = document.createElement("input");
     document.body.appendChild(input);
     act(() => {
-      input.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
-      );
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     });
     expect(mockStop).not.toHaveBeenCalled();
     document.body.removeChild(input);

@@ -74,10 +74,14 @@ export function SessionFilter() {
       className="flex items-center gap-3 px-3 py-1.5 border-b border-[#2a2a2a] bg-[#161616]"
     >
       <div className="flex items-center gap-1.5">
-        <label className="text-xs text-gray-500 uppercase tracking-wide">
+        <label
+          htmlFor="session-filter-bpm"
+          className="text-xs text-gray-500 uppercase tracking-wide"
+        >
           BPM
         </label>
         <input
+          id="session-filter-bpm"
           data-testid="session-filter-bpm"
           type="number"
           min={20}
@@ -96,10 +100,14 @@ export function SessionFilter() {
       </div>
 
       <div className="flex items-center gap-1.5">
-        <label className="text-xs text-gray-500 uppercase tracking-wide">
+        <label
+          htmlFor="session-filter-key"
+          className="text-xs text-gray-500 uppercase tracking-wide"
+        >
           Key
         </label>
         <select
+          id="session-filter-key"
           data-testid="session-filter-key"
           value={sessionFilter.key ?? ""}
           onChange={(e) => {

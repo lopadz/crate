@@ -3,8 +3,7 @@ import { useBrowserStore } from "../stores/browserStore";
 import { usePlaybackStore } from "../stores/playbackStore";
 
 export function PlaybackBar() {
-  const { currentFile, isPlaying, loop, volume, toggleLoop, setVolume } =
-    usePlaybackStore();
+  const { currentFile, isPlaying, loop, volume, toggleLoop, setVolume } = usePlaybackStore();
 
   const handlePlayPause = () => {
     if (isPlaying) {
@@ -56,10 +55,7 @@ export function PlaybackBar() {
 
       {/* Current file */}
       {currentFile && (
-        <span
-          data-testid="current-file-name"
-          className="flex-1 text-xs truncate text-gray-400"
-        >
+        <span data-testid="current-file-name" className="flex-1 text-xs truncate text-gray-400">
           {currentFile.name}
         </span>
       )}

@@ -1,6 +1,6 @@
-import { describe, test, expect, beforeEach } from "vitest";
-import { usePlaybackStore } from "./playbackStore";
+import { beforeEach, describe, expect, test } from "vitest";
 import type { AudioFile } from "../../shared/types";
+import { usePlaybackStore } from "./playbackStore";
 
 const file: AudioFile = { path: "/a/kick.wav", name: "kick.wav", extension: ".wav", size: 1000 };
 

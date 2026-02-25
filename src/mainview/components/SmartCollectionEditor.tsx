@@ -1,18 +1,11 @@
 import { useState } from "react";
 
 interface SmartCollectionEditorProps {
-  onSave: (
-    name: string,
-    color: string | null,
-    queryJson: string | null,
-  ) => void;
+  onSave: (name: string, color: string | null, queryJson: string | null) => void;
   existingNames?: string[];
 }
 
-export function SmartCollectionEditor({
-  onSave,
-  existingNames = [],
-}: SmartCollectionEditorProps) {
+export function SmartCollectionEditor({ onSave, existingNames = [] }: SmartCollectionEditorProps) {
   const [name, setName] = useState("");
   const [bpmMin, setBpmMin] = useState("");
   const [bpmMax, setBpmMax] = useState("");
@@ -22,9 +15,7 @@ export function SmartCollectionEditor({
     const trimmed = name.trim();
     if (!trimmed) return;
 
-    const isDuplicate = existingNames.some(
-      (n) => n.toLowerCase() === trimmed.toLowerCase(),
-    );
+    const isDuplicate = existingNames.some((n) => n.toLowerCase() === trimmed.toLowerCase());
     if (isDuplicate) {
       setNameError("A collection with this name already exists.");
       return;
@@ -38,8 +29,7 @@ export function SmartCollectionEditor({
       filter.bpm = { min, max };
     }
 
-    const queryJson =
-      Object.keys(filter).length > 0 ? JSON.stringify(filter) : null;
+    const queryJson = Object.keys(filter).length > 0 ? JSON.stringify(filter) : null;
     onSave(trimmed, null, queryJson);
     setName("");
     setBpmMin("");
@@ -47,10 +37,7 @@ export function SmartCollectionEditor({
   }
 
   return (
-    <div
-      data-testid="smart-collection-editor"
-      className="px-3 py-2 border-t border-[#2a2a2a] mt-1"
-    >
+    <div data-testid="smart-collection-editor" className="px-3 py-2 border-t border-[#2a2a2a] mt-1">
       <div className="text-xs text-gray-600 mb-1">New collection</div>
       <input
         data-testid="collection-name-input"
@@ -64,10 +51,7 @@ export function SmartCollectionEditor({
         className="w-full bg-[#1e1e1e] border border-[#333] rounded px-2 py-1 text-xs text-gray-300 placeholder-gray-600 focus:outline-none focus:border-indigo-500 mb-1"
       />
       {nameError && (
-        <p
-          data-testid="collection-name-error"
-          className="text-xs text-red-400 mb-1"
-        >
+        <p data-testid="collection-name-error" className="text-xs text-red-400 mb-1">
           {nameError}
         </p>
       )}

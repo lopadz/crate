@@ -41,11 +41,5 @@ export function Waveform() {
     if (blobUrl) wsRef.current.load(blobUrl);
   }, [currentFile]);
 
-  return (
-    <div
-      data-testid="waveform"
-      ref={containerRef}
-      className="w-full h-24 bg-[#111]"
-    />
-  );
+  return <div data-testid="waveform" ref={containerRef} className="w-full h-24 bg-[#111]" />;
 }

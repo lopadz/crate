@@ -54,9 +54,7 @@ describe("PlayHistory", () => {
 
   test("loads history via dbGetPlayHistory on mount", async () => {
     render(<PlayHistory />);
-    await waitFor(() =>
-      expect(mockDbGetPlayHistory).toHaveBeenCalledWith({ limit: 10 }),
-    );
+    await waitFor(() => expect(mockDbGetPlayHistory).toHaveBeenCalledWith({ limit: 10 }));
   });
 
   test("renders file names from history", async () => {

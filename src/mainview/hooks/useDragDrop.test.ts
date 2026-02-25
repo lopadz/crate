@@ -35,9 +35,7 @@ beforeEach(() => {
 
 describe("useDragDrop", () => {
   test("uses pre-warmed path in text/uri-list when cache hits", () => {
-    mockGetPrewarmedPath.mockReturnValue(
-      "/tmp/crate-drag/uuid/128_Am_kick.wav",
-    );
+    mockGetPrewarmedPath.mockReturnValue("/tmp/crate-drag/uuid/128_Am_kick.wav");
     const { result } = renderHook(() => useDragDrop(file));
     const mockDataTransfer = { setData: vi.fn(), effectAllowed: "" };
     result.current.onDragStart({
@@ -55,10 +53,7 @@ describe("useDragDrop", () => {
     result.current.onDragStart({
       dataTransfer: mockDataTransfer,
     } as unknown as React.DragEvent);
-    expect(mockDataTransfer.setData).toHaveBeenCalledWith(
-      "text/uri-list",
-      `file://${file.path}`,
-    );
+    expect(mockDataTransfer.setData).toHaveBeenCalledWith("text/uri-list", `file://${file.path}`);
   });
 
   test("passes compositeId and current dragPattern to getPrewarmedPath", () => {
@@ -71,9 +66,6 @@ describe("useDragDrop", () => {
     result.current.onDragStart({
       dataTransfer: mockDataTransfer,
     } as unknown as React.DragEvent);
-    expect(mockGetPrewarmedPath).toHaveBeenCalledWith(
-      "cid-kick",
-      "{bpm}_{original}",
-    );
+    expect(mockGetPrewarmedPath).toHaveBeenCalledWith("cid-kick", "{bpm}_{original}");
   });
 });

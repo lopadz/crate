@@ -9,10 +9,7 @@ import { useBrowserStore } from "../stores/browserStore";
 export function useFilePreload(): void {
   useEffect(() => {
     return useBrowserStore.subscribe((state, prevState) => {
-      if (
-        state.selectedIndex !== prevState.selectedIndex &&
-        state.selectedIndex >= 0
-      ) {
+      if (state.selectedIndex !== prevState.selectedIndex && state.selectedIndex >= 0) {
         const file = state.fileList[state.selectedIndex];
         if (file) audioEngine.preload(file);
       }

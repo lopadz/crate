@@ -134,17 +134,13 @@ describe("PlaybackBar — loop button", () => {
   test("loop button has aria-pressed=true when loop is active", () => {
     usePlaybackStore.setState({ ...usePlaybackStore.getState(), loop: true });
     render(<PlaybackBar />);
-    expect(screen.getByTestId("loop-btn").getAttribute("aria-pressed")).toBe(
-      "true",
-    );
+    expect(screen.getByTestId("loop-btn").getAttribute("aria-pressed")).toBe("true");
   });
 
   test("loop button has aria-pressed=false when loop is inactive", () => {
     usePlaybackStore.setState({ ...usePlaybackStore.getState(), loop: false });
     render(<PlaybackBar />);
-    expect(screen.getByTestId("loop-btn").getAttribute("aria-pressed")).toBe(
-      "false",
-    );
+    expect(screen.getByTestId("loop-btn").getAttribute("aria-pressed")).toBe("false");
   });
 });
 
@@ -179,9 +175,7 @@ describe("PlaybackBar — current file", () => {
     });
     render(<PlaybackBar />);
     expect(screen.getByTestId("current-file-name")).toBeDefined();
-    expect(screen.getByTestId("current-file-name").textContent).toBe(
-      "kick.wav",
-    );
+    expect(screen.getByTestId("current-file-name").textContent).toBe("kick.wav");
   });
 
   test("shows nothing for file name when no file is loaded", () => {

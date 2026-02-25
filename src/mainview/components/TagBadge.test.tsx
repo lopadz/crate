@@ -1,7 +1,6 @@
-import { vi, describe, test, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { TagColor } from "../../shared/types";
+import { describe, expect, test, vi } from "vitest";
 import { TagBadge } from "./TagBadge";
 
 describe("TagBadge", () => {

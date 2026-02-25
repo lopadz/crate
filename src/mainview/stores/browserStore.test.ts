@@ -69,9 +69,7 @@ describe("browserStore — folder / file list", () => {
 
 describe("browserStore — selection", () => {
   beforeEach(() => {
-    useBrowserStore
-      .getState()
-      .setFileList([file("a.wav"), file("b.wav"), file("c.wav")]);
+    useBrowserStore.getState().setFileList([file("a.wav"), file("b.wav"), file("c.wav")]);
   });
 
   test("setSelectedIndex sets index", () => {
@@ -172,10 +170,7 @@ describe("browserStore — color tagging", () => {
   test("setColorTag can clear a tag to null", () => {
     useBrowserStore.setState({
       ...useBrowserStore.getState(),
-      fileList: [
-        { ...file("a.wav", "cid-a"), colorTag: "green" },
-        file("b.wav", "cid-b"),
-      ],
+      fileList: [{ ...file("a.wav", "cid-a"), colorTag: "green" }, file("b.wav", "cid-b")],
     });
     useBrowserStore.getState().setColorTag("cid-a", null);
     expect(useBrowserStore.getState().fileList[0].colorTag).toBeNull();

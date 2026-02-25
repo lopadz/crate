@@ -40,9 +40,7 @@ describe("SearchBar", () => {
     fireEvent.change(screen.getByTestId("search-bar-input"), {
       target: { value: "dark" },
     });
-    await waitFor(() =>
-      expect(mockDbSearchFiles).toHaveBeenCalledWith({ query: "dark" }),
-    );
+    await waitFor(() => expect(mockDbSearchFiles).toHaveBeenCalledWith({ query: "dark" }));
   });
 
   test("search results replace fileList in browserStore", async () => {
@@ -60,9 +58,7 @@ describe("SearchBar", () => {
     fireEvent.change(screen.getByTestId("search-bar-input"), {
       target: { value: "dark" },
     });
-    await waitFor(() =>
-      expect(useBrowserStore.getState().fileList).toEqual(mockFiles),
-    );
+    await waitFor(() => expect(useBrowserStore.getState().fileList).toEqual(mockFiles));
   });
 
   test("clearing the input calls fsReaddir with activeFolder", async () => {
@@ -71,8 +67,6 @@ describe("SearchBar", () => {
     fireEvent.change(input, { target: { value: "dark" } });
     await waitFor(() => expect(mockDbSearchFiles).toHaveBeenCalled());
     fireEvent.change(input, { target: { value: "" } });
-    await waitFor(() =>
-      expect(mockFsReaddir).toHaveBeenCalledWith({ path: "/Samples" }),
-    );
+    await waitFor(() => expect(mockFsReaddir).toHaveBeenCalledWith({ path: "/Samples" }));
   });
 });

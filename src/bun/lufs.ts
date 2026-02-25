@@ -45,8 +45,8 @@ interface BiquadCoeffs {
 
 function preFilterCoeffs(sampleRate: number): BiquadCoeffs {
   const K = Math.tan((Math.PI * PRE_F0) / sampleRate);
-  const Vh = Math.pow(10, PRE_G / 20);
-  const Vb = Math.pow(Vh, PRE_VB_EXP);
+  const Vh = 10 ** (PRE_G / 20);
+  const Vb = Vh ** PRE_VB_EXP;
   const a0 = 1 + K / PRE_Q + K * K;
   return {
     b0: (Vh + Vb * (K / PRE_Q) + K * K) / a0,
@@ -89,10 +89,7 @@ function applyBiquad(input: Float32Array, c: BiquadCoeffs): Float32Array {
   return out;
 }
 
-function applyKWeighting(
-  samples: Float32Array,
-  sampleRate: number,
-): Float32Array {
+function applyKWeighting(samples: Float32Array, sampleRate: number): Float32Array {
   return applyBiquad(
     applyBiquad(samples, preFilterCoeffs(sampleRate)),
     rlbFilterCoeffs(sampleRate),
@@ -121,10 +118,7 @@ function computeTruePeak(samples: Float32Array): number {
 
 // ─── Main measurement ─────────────────────────────────────────────────────────
 
-export function measureLufs(
-  samples: Float32Array,
-  sampleRate: number,
-): LufsResult {
+export function measureLufs(samples: Float32Array, sampleRate: number): LufsResult {
   const silence: LufsResult = {
     integrated: -Infinity,
     truePeak: 0,
@@ -151,7 +145,7 @@ export function measureLufs(
   if (blockMeanSquares.length === 0) return silence;
 
   // Absolute gate: L >= −70 LUFS  →  meanSquare >= 10^((−70 + 0.691) / 10)
-  const absGateMs = Math.pow(10, (-70 + 0.691) / 10);
+  const absGateMs = 10 ** ((-70 + 0.691) / 10);
   const absGated = blockMeanSquares.filter((ms) => ms >= absGateMs);
 
   if (absGated.length === 0) {
@@ -160,7 +154,7 @@ export function measureLufs(
 
   // Relative gate: 10 LU below the mean of absolutely-gated blocks
   const absGatedMean = absGated.reduce((a, b) => a + b, 0) / absGated.length;
-  const relGateMs = absGatedMean * Math.pow(10, -10 / 10);
+  const relGateMs = absGatedMean * 10 ** (-10 / 10);
   const relGated = absGated.filter((ms) => ms >= relGateMs);
 
   if (relGated.length === 0) {
@@ -176,8 +170,7 @@ export function measureLufs(
   if (absGated.length >= 2) {
     const sorted = [...absGated].sort((a, b) => a - b);
     const softMs = sorted[Math.max(0, Math.floor(sorted.length * 0.1))];
-    const loudMs =
-      sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))];
+    const loudMs = sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))];
     const soft = -0.691 + 10 * Math.log10(softMs);
     const loud = -0.691 + 10 * Math.log10(loudMs);
     dynamicRange = Math.max(0, loud - soft);

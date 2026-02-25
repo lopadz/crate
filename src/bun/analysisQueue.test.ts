@@ -18,10 +18,7 @@ const RESULT_PAYLOAD = {
  * Creates a mock WorkerLike that responds to ANALYZE messages.
  * `respond` receives the compositeId and returns the message data to emit.
  */
-function makeFactory(
-  respond: (compositeId: string) => object,
-  delayMs = 0,
-): () => WorkerLike {
+function makeFactory(respond: (compositeId: string) => object, delayMs = 0): () => WorkerLike {
   return () => {
     const worker: WorkerLike = {
       onmessage: null,
@@ -150,9 +147,7 @@ describe("AnalysisQueue — pause / resume", () => {
 describe("AnalysisQueue — events", () => {
   test('emits "result" event with analysis data on success', async () => {
     const q = new AnalysisQueue({ workerFactory: okFactory });
-    const resultPromise = new Promise<object>((resolve) =>
-      q.once("result", resolve),
-    );
+    const resultPromise = new Promise<object>((resolve) => q.once("result", resolve));
     q.enqueue("cid-42", "/file.wav");
     const result = await resultPromise;
 

@@ -14,11 +14,9 @@ describe("initSchema", () => {
   test("creates all required tables", () => {
     const db = makeDb();
     const tables = (
-      db
-        .query(
-          "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name",
-        )
-        .all() as Array<{ name: string }>
+      db.query("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").all() as Array<{
+        name: string;
+      }>
     ).map((r) => r.name);
 
     for (const t of [
@@ -45,11 +43,9 @@ describe("initSchema", () => {
   test("creates files_fts virtual table for full-text search", () => {
     const db = makeDb();
     const tables = (
-      db
-        .query(
-          "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name",
-        )
-        .all() as Array<{ name: string }>
+      db.query("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").all() as Array<{
+        name: string;
+      }>
     ).map((r) => r.name);
     expect(tables).toContain("files_fts");
   });
@@ -71,9 +67,7 @@ describe("initSchema", () => {
 
 describe("computeCompositeId", () => {
   test("returns a 64-char hex string", () => {
-    expect(computeCompositeId("kick.wav", 1.5, 44100)).toMatch(
-      /^[0-9a-f]{64}$/,
-    );
+    expect(computeCompositeId("kick.wav", 1.5, 44100)).toMatch(/^[0-9a-f]{64}$/);
   });
 
   test("same inputs → same id", () => {
@@ -132,9 +126,7 @@ describe("setColorTagByCompositeId", () => {
   });
 
   test("no-ops when composite_id does not exist", () => {
-    expect(() =>
-      q.setColorTagByCompositeId("nonexistent", "green"),
-    ).not.toThrow();
+    expect(() => q.setColorTagByCompositeId("nonexistent", "green")).not.toThrow();
   });
 });
 
@@ -192,9 +184,7 @@ describe("pinned folders", () => {
   test("pinFolder is idempotent", () => {
     q.pinFolder("/Users/me/Samples");
     q.pinFolder("/Users/me/Samples");
-    expect(
-      q.getPinnedFolders().filter((p) => p === "/Users/me/Samples"),
-    ).toHaveLength(1);
+    expect(q.getPinnedFolders().filter((p) => p === "/Users/me/Samples")).toHaveLength(1);
   });
 
   test("multiple pinned folders all returned", () => {
@@ -269,9 +259,7 @@ describe("upsertFilesFromScan", () => {
       duration: 1.5,
     });
     q.upsertFilesFromScan([{ path: "/a/kick.wav", extension: ".wav" }]);
-    expect(q.getFileByPath("/a/kick.wav")?.composite_id).toBe(
-      "real-composite-id",
-    );
+    expect(q.getFileByPath("/a/kick.wav")?.composite_id).toBe("real-composite-id");
   });
 
   test("handles a batch of multiple files in one transaction", () => {
@@ -515,9 +503,7 @@ describe("notes", () => {
   test("setNote syncs notes_text into files_fts", () => {
     q.setNote("note-cid-1", "dark atmospheric texture");
     const rows = db
-      .query(
-        `SELECT notes_text FROM files_fts WHERE composite_id = 'note-cid-1'`,
-      )
+      .query(`SELECT notes_text FROM files_fts WHERE composite_id = 'note-cid-1'`)
       .all() as Array<{ notes_text: string }>;
     expect(rows[0]?.notes_text).toBe("dark atmospheric texture");
   });
@@ -554,15 +540,9 @@ describe("getPlayHistory", () => {
   });
 
   test("returns played files ordered by most recent first", () => {
-    db.run(
-      `INSERT INTO play_history (composite_id, played_at) VALUES ('ph-cid-1', 100)`,
-    );
-    db.run(
-      `INSERT INTO play_history (composite_id, played_at) VALUES ('ph-cid-2', 200)`,
-    );
-    db.run(
-      `INSERT INTO play_history (composite_id, played_at) VALUES ('ph-cid-3', 300)`,
-    );
+    db.run(`INSERT INTO play_history (composite_id, played_at) VALUES ('ph-cid-1', 100)`);
+    db.run(`INSERT INTO play_history (composite_id, played_at) VALUES ('ph-cid-2', 200)`);
+    db.run(`INSERT INTO play_history (composite_id, played_at) VALUES ('ph-cid-3', 300)`);
     const history = q.getPlayHistory(10);
     expect(history[0].compositeId).toBe("ph-cid-3");
     expect(history[1].compositeId).toBe("ph-cid-2");
@@ -571,15 +551,9 @@ describe("getPlayHistory", () => {
 
   test("deduplicates repeated plays — only latest occurrence per file", () => {
     // Insert with explicit timestamps to avoid Date.now() collisions in fast tests
-    db.run(
-      `INSERT INTO play_history (composite_id, played_at) VALUES ('ph-cid-1', 100)`,
-    );
-    db.run(
-      `INSERT INTO play_history (composite_id, played_at) VALUES ('ph-cid-2', 200)`,
-    );
-    db.run(
-      `INSERT INTO play_history (composite_id, played_at) VALUES ('ph-cid-1', 300)`,
-    );
+    db.run(`INSERT INTO play_history (composite_id, played_at) VALUES ('ph-cid-1', 100)`);
+    db.run(`INSERT INTO play_history (composite_id, played_at) VALUES ('ph-cid-2', 200)`);
+    db.run(`INSERT INTO play_history (composite_id, played_at) VALUES ('ph-cid-1', 300)`);
     const history = q.getPlayHistory(10);
     const ids = history.map((h) => h.compositeId);
     expect(ids.filter((id) => id === "ph-cid-1")).toHaveLength(1);
@@ -587,15 +561,9 @@ describe("getPlayHistory", () => {
   });
 
   test("respects limit", () => {
-    db.run(
-      `INSERT INTO play_history (composite_id, played_at) VALUES ('ph-cid-1', 100)`,
-    );
-    db.run(
-      `INSERT INTO play_history (composite_id, played_at) VALUES ('ph-cid-2', 200)`,
-    );
-    db.run(
-      `INSERT INTO play_history (composite_id, played_at) VALUES ('ph-cid-3', 300)`,
-    );
+    db.run(`INSERT INTO play_history (composite_id, played_at) VALUES ('ph-cid-1', 100)`);
+    db.run(`INSERT INTO play_history (composite_id, played_at) VALUES ('ph-cid-2', 200)`);
+    db.run(`INSERT INTO play_history (composite_id, played_at) VALUES ('ph-cid-3', 300)`);
     expect(q.getPlayHistory(2)).toHaveLength(2);
   });
 

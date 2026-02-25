@@ -1,5 +1,5 @@
-import * as Tone from "tone";
 import { Midi } from "@tonejs/midi";
+import * as Tone from "tone";
 import type { AudioFile } from "../../shared/types";
 
 export class MidiEngine {

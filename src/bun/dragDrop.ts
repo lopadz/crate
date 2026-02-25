@@ -1,6 +1,6 @@
-import { randomUUID } from "crypto";
-import * as fs from "fs";
-import * as path from "path";
+import { randomUUID } from "node:crypto";
+import * as fs from "node:fs";
+import * as path from "node:path";
 
 export interface ResolveOptions {
   original: string; // basename WITHOUT extension

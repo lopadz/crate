@@ -4,23 +4,16 @@ import type { AudioFile } from "../../shared/types";
 
 // ── Hoisted mock handles (must precede vi.mock hoisting) ─────────────────────
 
-const {
-  mockLoad,
-  mockDestroy,
-  mockGetDuration,
-  mockOn,
-  mockCreate,
-  mockSeek,
-  mockGetBlobUrl,
-} = vi.hoisted(() => ({
-  mockLoad: vi.fn().mockResolvedValue(undefined),
-  mockDestroy: vi.fn(),
-  mockGetDuration: vi.fn().mockReturnValue(10),
-  mockOn: vi.fn(),
-  mockCreate: vi.fn(),
-  mockSeek: vi.fn(),
-  mockGetBlobUrl: vi.fn().mockReturnValue("blob:mock://test"),
-}));
+const { mockLoad, mockDestroy, mockGetDuration, mockOn, mockCreate, mockSeek, mockGetBlobUrl } =
+  vi.hoisted(() => ({
+    mockLoad: vi.fn().mockResolvedValue(undefined),
+    mockDestroy: vi.fn(),
+    mockGetDuration: vi.fn().mockReturnValue(10),
+    mockOn: vi.fn(),
+    mockCreate: vi.fn(),
+    mockSeek: vi.fn(),
+    mockGetBlobUrl: vi.fn().mockReturnValue("blob:mock://test"),
+  }));
 
 // ── WaveSurfer mock ───────────────────────────────────────────────────────────
 
@@ -138,11 +131,11 @@ describe("Waveform", () => {
   test("seeking event calls audioEngine.seek with current time", async () => {
     render(<Waveform />);
     // Capture the seeking callback registered via ws.on("seeking", cb)
-    const seekHandler = mockOn.mock.calls.find(
-      ([event]) => event === "seeking",
-    )?.[1] as ((currentTime: number) => void) | undefined;
+    const seekHandler = mockOn.mock.calls.find(([event]) => event === "seeking")?.[1] as
+      | ((currentTime: number) => void)
+      | undefined;
     expect(seekHandler).toBeDefined();
-    act(() => seekHandler!(5));
+    act(() => seekHandler?.(5));
     expect(mockSeek).toHaveBeenCalledWith(5);
   });
 });

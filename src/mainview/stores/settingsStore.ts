@@ -45,8 +45,7 @@ export const useSettingsStore = create<SettingsState>()(
 
       setAutoplay: (autoplay) => set({ autoplay }),
 
-      toggleNormalizeVolume: () =>
-        set((s) => ({ normalizeVolume: !s.normalizeVolume })),
+      toggleNormalizeVolume: () => set((s) => ({ normalizeVolume: !s.normalizeVolume })),
 
       setSidebarWidth: (w) => set({ sidebarWidth: w }),
 

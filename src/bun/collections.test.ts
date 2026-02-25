@@ -13,9 +13,7 @@ function makeDb() {
 
 describe("buildCollectionQuery — BPM filter", () => {
   test("generates BETWEEN clause for bpm range", () => {
-    const { sql, params } = buildCollectionQuery(
-      JSON.stringify({ bpm: { min: 120, max: 130 } }),
-    );
+    const { sql, params } = buildCollectionQuery(JSON.stringify({ bpm: { min: 120, max: 130 } }));
     expect(sql).toContain("WHERE");
     expect(sql).toMatch(/bpm BETWEEN \? AND \?/);
     expect(params).toContain(120);
@@ -25,9 +23,7 @@ describe("buildCollectionQuery — BPM filter", () => {
 
 describe("buildCollectionQuery — key filter", () => {
   test("generates IN clause for key array", () => {
-    const { sql, params } = buildCollectionQuery(
-      JSON.stringify({ key: ["Am", "Cm"] }),
-    );
+    const { sql, params } = buildCollectionQuery(JSON.stringify({ key: ["Am", "Cm"] }));
     expect(sql).toContain("WHERE");
     expect(sql).toMatch(/key IN \(\?,\s*\?\)/);
     expect(params).toContain("Am");
@@ -35,9 +31,7 @@ describe("buildCollectionQuery — key filter", () => {
   });
 
   test("single key generates IN clause with one placeholder", () => {
-    const { sql, params } = buildCollectionQuery(
-      JSON.stringify({ key: ["Am"] }),
-    );
+    const { sql, params } = buildCollectionQuery(JSON.stringify({ key: ["Am"] }));
     expect(sql).toMatch(/key IN \(\?\)/);
     expect(params).toContain("Am");
   });
@@ -45,18 +39,14 @@ describe("buildCollectionQuery — key filter", () => {
 
 describe("buildCollectionQuery — tag filter", () => {
   test("generates EXISTS subquery for tags array", () => {
-    const { sql, params } = buildCollectionQuery(
-      JSON.stringify({ tags: ["loop"] }),
-    );
+    const { sql, params } = buildCollectionQuery(JSON.stringify({ tags: ["loop"] }));
     expect(sql).toContain("WHERE");
     expect(sql).toContain("EXISTS");
     expect(params).toContain("loop");
   });
 
   test("multiple tags generate correct number of placeholders", () => {
-    const { sql, params } = buildCollectionQuery(
-      JSON.stringify({ tags: ["loop", "kick"] }),
-    );
+    const { params } = buildCollectionQuery(JSON.stringify({ tags: ["loop", "kick"] }));
     expect(params).toContain("loop");
     expect(params).toContain("kick");
   });
@@ -103,17 +93,13 @@ describe("buildCollectionQuery — empty / manual collection", () => {
 
 describe("buildCollectionQuery — parameterized (no interpolation)", () => {
   test("key values are in params, not in SQL string", () => {
-    const { sql, params } = buildCollectionQuery(
-      JSON.stringify({ key: ["Am"] }),
-    );
+    const { sql, params } = buildCollectionQuery(JSON.stringify({ key: ["Am"] }));
     expect(sql).not.toContain("Am");
     expect(params).toContain("Am");
   });
 
   test("BPM values are in params, not in SQL string", () => {
-    const { sql, params } = buildCollectionQuery(
-      JSON.stringify({ bpm: { min: 128, max: 128 } }),
-    );
+    const { sql, params } = buildCollectionQuery(JSON.stringify({ bpm: { min: 128, max: 128 } }));
     expect(sql).not.toContain("128");
     expect(params).toContain(128);
   });
@@ -216,22 +202,14 @@ describe("getCollectionFiles — smart collection", () => {
   });
 
   test("BPM range filter returns matching files", () => {
-    const c = q.createCollection(
-      "Fast",
-      null,
-      JSON.stringify({ bpm: { min: 120, max: 135 } }),
-    );
+    const c = q.createCollection("Fast", null, JSON.stringify({ bpm: { min: 120, max: 135 } }));
     const files = q.getCollectionFiles(c.id);
     expect(files).toHaveLength(1);
     expect(files[0].compositeId).toBe("cid-1");
   });
 
   test("key filter returns matching files", () => {
-    const c = q.createCollection(
-      "Am songs",
-      null,
-      JSON.stringify({ key: ["Am"] }),
-    );
+    const c = q.createCollection("Am songs", null, JSON.stringify({ key: ["Am"] }));
     const files = q.getCollectionFiles(c.id);
     expect(files).toHaveLength(2);
     expect(files.map((f) => f.compositeId)).toContain("cid-1");

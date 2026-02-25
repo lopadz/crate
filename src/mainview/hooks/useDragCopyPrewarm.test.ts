@@ -3,9 +3,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import type { AudioFile } from "../../shared/types";
 
 const { mockDawCreateDragCopy } = vi.hoisted(() => ({
-  mockDawCreateDragCopy: vi
-    .fn()
-    .mockResolvedValue("/tmp/crate-drag/uuid/kick.wav"),
+  mockDawCreateDragCopy: vi.fn().mockResolvedValue("/tmp/crate-drag/uuid/kick.wav"),
 }));
 
 vi.mock("../rpc", () => ({
@@ -16,11 +14,7 @@ vi.mock("../rpc", () => ({
 
 import { useBrowserStore } from "../stores/browserStore";
 import { useSettingsStore } from "../stores/settingsStore";
-import {
-  getPrewarmedPath,
-  resetPrewarmCache,
-  useDragCopyPrewarm,
-} from "./useDragCopyPrewarm";
+import { getPrewarmedPath, resetPrewarmCache, useDragCopyPrewarm } from "./useDragCopyPrewarm";
 
 const fileA: AudioFile = {
   path: "/Samples/kick.wav",
@@ -101,9 +95,7 @@ describe("useDragCopyPrewarm", () => {
     mockDawCreateDragCopy.mockResolvedValue("/tmp/crate-drag/uuid/kick.wav");
     renderHook(() => useDragCopyPrewarm());
     await waitFor(() =>
-      expect(getPrewarmedPath("cid-kick", "{original}")).toBe(
-        "/tmp/crate-drag/uuid/kick.wav",
-      ),
+      expect(getPrewarmedPath("cid-kick", "{original}")).toBe("/tmp/crate-drag/uuid/kick.wav"),
     );
   });
 

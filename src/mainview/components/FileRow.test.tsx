@@ -68,9 +68,7 @@ describe("FileRow", () => {
   });
 
   test("renders formatted duration when available", () => {
-    render(
-      <FileRow file={fileWithMeta} isSelected={false} originalIndex={0} />,
-    );
+    render(<FileRow file={fileWithMeta} isSelected={false} originalIndex={0} />);
     expect(screen.getByText("1:23")).toBeDefined();
   });
 
@@ -102,45 +100,27 @@ describe("FileRow", () => {
 
   test("shows green color tag badge", () => {
     render(
-      <FileRow
-        file={{ ...baseFile, colorTag: "green" }}
-        isSelected={false}
-        originalIndex={0}
-      />,
+      <FileRow file={{ ...baseFile, colorTag: "green" }} isSelected={false} originalIndex={0} />,
     );
     expect(screen.getByTestId("color-tag-green")).toBeDefined();
   });
 
   test("shows yellow color tag badge", () => {
     render(
-      <FileRow
-        file={{ ...baseFile, colorTag: "yellow" }}
-        isSelected={false}
-        originalIndex={0}
-      />,
+      <FileRow file={{ ...baseFile, colorTag: "yellow" }} isSelected={false} originalIndex={0} />,
     );
     expect(screen.getByTestId("color-tag-yellow")).toBeDefined();
   });
 
   test("shows red color tag badge", () => {
     render(
-      <FileRow
-        file={{ ...baseFile, colorTag: "red" }}
-        isSelected={false}
-        originalIndex={0}
-      />,
+      <FileRow file={{ ...baseFile, colorTag: "red" }} isSelected={false} originalIndex={0} />,
     );
     expect(screen.getByTestId("color-tag-red")).toBeDefined();
   });
 
   test("shows no badge when colorTag is null", () => {
-    render(
-      <FileRow
-        file={{ ...baseFile, colorTag: null }}
-        isSelected={false}
-        originalIndex={0}
-      />,
-    );
+    render(<FileRow file={{ ...baseFile, colorTag: null }} isSelected={false} originalIndex={0} />);
     expect(screen.queryByTestId(/color-tag/)).toBeNull();
   });
 
@@ -223,13 +203,7 @@ describe("FileRow — analysis columns", () => {
   });
 
   test("BPM column shows rounded value when bpm is set", () => {
-    render(
-      <FileRow
-        file={{ ...baseFile, bpm: 120.5 }}
-        isSelected={false}
-        originalIndex={0}
-      />,
-    );
+    render(<FileRow file={{ ...baseFile, bpm: 120.5 }} isSelected={false} originalIndex={0} />);
     expect(screen.getByTestId("col-bpm").textContent).toBe("121");
   });
 
@@ -240,11 +214,7 @@ describe("FileRow — analysis columns", () => {
 
   test("key column shows Camelot code when available", () => {
     render(
-      <FileRow
-        file={{ ...baseFile, keyCamelot: "8A" }}
-        isSelected={false}
-        originalIndex={0}
-      />,
+      <FileRow file={{ ...baseFile, keyCamelot: "8A" }} isSelected={false} originalIndex={0} />,
     );
     expect(screen.getByTestId("col-key").textContent).toBe("8A");
   });
@@ -331,13 +301,7 @@ describe("FileRow — star rating", () => {
   });
 
   test("file with rating 3 shows 3 filled stars and 2 empty", () => {
-    render(
-      <FileRow
-        file={{ ...baseFile, rating: 3 }}
-        isSelected={false}
-        originalIndex={0}
-      />,
-    );
+    render(<FileRow file={{ ...baseFile, rating: 3 }} isSelected={false} originalIndex={0} />);
     for (let i = 1; i <= 3; i++) {
       expect(screen.getByTestId(`star-${i}`).dataset.filled).toBe("true");
     }
@@ -356,13 +320,7 @@ describe("FileRow — star rating", () => {
   });
 
   test("clicking the same star again clears the rating (toggle to 0)", async () => {
-    render(
-      <FileRow
-        file={{ ...baseFile, rating: 4 }}
-        isSelected={false}
-        originalIndex={0}
-      />,
-    );
+    render(<FileRow file={{ ...baseFile, rating: 4 }} isSelected={false} originalIndex={0} />);
     await userEvent.click(screen.getByTestId("star-4"));
     expect(mockDbSetRating).toHaveBeenCalledWith({
       compositeId: baseFile.compositeId,

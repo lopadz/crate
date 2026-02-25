@@ -32,10 +32,7 @@ export function SearchBar({ debounceMs = 300 }: SearchBarProps) {
   };
 
   return (
-    <div
-      data-testid="search-bar"
-      className="px-3 py-2 border-b border-[#2a2a2a]"
-    >
+    <div data-testid="search-bar" className="px-3 py-2 border-b border-[#2a2a2a]">
       <input
         data-testid="search-bar-input"
         type="search"

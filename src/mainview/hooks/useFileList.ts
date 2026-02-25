@@ -22,7 +22,7 @@ export function useFileList() {
         statuses[f.compositeId] = f.lufsIntegrated != null ? "done" : "queued";
       }
       useAnalysisStore.getState().setFileStatuses(statuses);
-    };;
+    };
 
     const scanFiles = async (files: Parameters<typeof setFileList>[0]) => {
       // Yield once so the file list renders before we finalize statuses.
@@ -38,7 +38,7 @@ export function useFileList() {
       if (Object.keys(updates).length > 0) {
         useAnalysisStore.getState().setFileStatuses(updates);
       }
-    };;
+    };
 
     rpcClient?.request.fsReaddir({ path: activeFolder }).then((files) => {
       if (!cancelled) {

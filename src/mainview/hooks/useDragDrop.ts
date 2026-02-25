@@ -15,9 +15,7 @@ export function useDragDrop(file: AudioFile) {
   const onDragStart = (e: React.DragEvent) => {
     e.dataTransfer.effectAllowed = "copy";
 
-    const prewarmedPath = file.compositeId
-      ? getPrewarmedPath(file.compositeId, dragPattern)
-      : null;
+    const prewarmedPath = file.compositeId ? getPrewarmedPath(file.compositeId, dragPattern) : null;
 
     const filePath = prewarmedPath ?? file.path;
     e.dataTransfer.setData("text/uri-list", `file://${filePath}`);

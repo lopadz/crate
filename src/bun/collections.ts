@@ -41,10 +41,7 @@ export function buildCollectionQuery(queryJson: string): {
     params.push(...filter.tags);
   }
 
-  const sql =
-    conditions.length > 0
-      ? `${BASE_SQL} WHERE ${conditions.join(" AND ")}`
-      : BASE_SQL;
+  const sql = conditions.length > 0 ? `${BASE_SQL} WHERE ${conditions.join(" AND ")}` : BASE_SQL;
 
   return { sql, params };
 }

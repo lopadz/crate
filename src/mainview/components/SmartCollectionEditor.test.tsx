@@ -29,10 +29,7 @@ describe("SmartCollectionEditor — save", () => {
   test("save with name only calls onSave with null queryJson", async () => {
     const onSave = vi.fn();
     render(<SmartCollectionEditor onSave={onSave} />);
-    await userEvent.type(
-      screen.getByTestId("collection-name-input"),
-      "All Files",
-    );
+    await userEvent.type(screen.getByTestId("collection-name-input"), "All Files");
     await userEvent.click(screen.getByTestId("collection-save-btn"));
     expect(onSave).toHaveBeenCalledWith("All Files", null, null);
   });
@@ -61,41 +58,23 @@ describe("SmartCollectionEditor — save", () => {
   describe("SmartCollectionEditor — duplicate name prevention", () => {
     test("does not call onSave when name already exists (case-insensitive)", async () => {
       const onSave = vi.fn();
-      render(
-        <SmartCollectionEditor
-          onSave={onSave}
-          existingNames={["Kicks", "Bass"]}
-        />,
-      );
-      await userEvent.type(
-        screen.getByTestId("collection-name-input"),
-        "kicks",
-      );
+      render(<SmartCollectionEditor onSave={onSave} existingNames={["Kicks", "Bass"]} />);
+      await userEvent.type(screen.getByTestId("collection-name-input"), "kicks");
       await userEvent.click(screen.getByTestId("collection-save-btn"));
       expect(onSave).not.toHaveBeenCalled();
     });
 
     test("shows duplicate-name error message", async () => {
-      render(
-        <SmartCollectionEditor onSave={() => {}} existingNames={["Kicks"]} />,
-      );
-      await userEvent.type(
-        screen.getByTestId("collection-name-input"),
-        "Kicks",
-      );
+      render(<SmartCollectionEditor onSave={() => {}} existingNames={["Kicks"]} />);
+      await userEvent.type(screen.getByTestId("collection-name-input"), "Kicks");
       await userEvent.click(screen.getByTestId("collection-save-btn"));
       expect(screen.getByTestId("collection-name-error")).toBeDefined();
     });
 
     test("unique name calls onSave even when existingNames is provided", async () => {
       const onSave = vi.fn();
-      render(
-        <SmartCollectionEditor onSave={onSave} existingNames={["Kicks"]} />,
-      );
-      await userEvent.type(
-        screen.getByTestId("collection-name-input"),
-        "Snares",
-      );
+      render(<SmartCollectionEditor onSave={onSave} existingNames={["Kicks"]} />);
+      await userEvent.type(screen.getByTestId("collection-name-input"), "Snares");
       await userEvent.click(screen.getByTestId("collection-save-btn"));
       expect(onSave).toHaveBeenCalledWith("Snares", null, null);
     });
@@ -107,11 +86,7 @@ describe("SmartCollectionEditor — save", () => {
     await userEvent.type(screen.getByTestId("collection-name-input"), "Fast");
     await userEvent.type(screen.getByTestId("collection-bpm-min"), "120");
     await userEvent.click(screen.getByTestId("collection-save-btn"));
-    expect(
-      (screen.getByTestId("collection-name-input") as HTMLInputElement).value,
-    ).toBe("");
-    expect(
-      (screen.getByTestId("collection-bpm-min") as HTMLInputElement).value,
-    ).toBe("");
+    expect((screen.getByTestId("collection-name-input") as HTMLInputElement).value).toBe("");
+    expect((screen.getByTestId("collection-bpm-min") as HTMLInputElement).value).toBe("");
   });
 });

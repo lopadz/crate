@@ -89,10 +89,7 @@ export class AudioEngine {
       // Fast path: WebView fetches directly from the local HTTP server.
       // No IPC binary transfer, no base64 encode/decode — just a local HTTP GET.
       const response = await fetch(httpUrl);
-      if (!response.ok)
-        throw new Error(
-          `Audio fetch failed (${response.status}): ${file.path}`,
-        );
+      if (!response.ok) throw new Error(`Audio fetch failed (${response.status}): ${file.path}`);
       arrayBuffer = await response.arrayBuffer();
     } else {
       // Legacy fallback: used only in the brief window before setServerConfig()
@@ -146,19 +143,14 @@ export class AudioEngine {
     const source = ctx.createBufferSource();
     source.buffer = buffer;
 
-    const { normalizeVolume, normalizationTargetLufs } =
-      useSettingsStore.getState();
+    const { normalizeVolume, normalizationTargetLufs } = useSettingsStore.getState();
     if (normalizeVolume) {
       const gainNode = ctx.createGain();
       // Use cached RMS if the deferred setTimeout already fired; otherwise
       // compute once synchronously and cache so subsequent plays are instant.
-      const measuredDb =
-        this.measuredDbCache.get(file.path) ?? computeMeasuredDb(buffer);
+      const measuredDb = this.measuredDbCache.get(file.path) ?? computeMeasuredDb(buffer);
       this.measuredDbCache.set(file.path, measuredDb);
-      gainNode.gain.value = Math.pow(
-        10,
-        (normalizationTargetLufs - measuredDb) / 20,
-      );
+      gainNode.gain.value = 10 ** ((normalizationTargetLufs - measuredDb) / 20);
       source.connect(gainNode);
       gainNode.connect(ctx.destination);
     } else {

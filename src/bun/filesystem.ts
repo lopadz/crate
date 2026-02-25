@@ -1,3 +1,4 @@
+import type { Dirent } from "node:fs";
 import { watch } from "node:fs";
 import { readdir as fsReaddir, stat } from "node:fs/promises";
 import { extname, join } from "node:path";
@@ -43,9 +44,7 @@ export async function readdir(dirPath: string): Promise<AudioFile[]> {
 
 export async function listDirs(dirPath: string): Promise<string[]> {
   const entries = await fsReaddir(dirPath, { withFileTypes: true });
-  return entries
-    .filter((e) => e.isDirectory())
-    .map((e) => join(dirPath, e.name));
+  return entries.filter((e) => e.isDirectory()).map((e) => join(dirPath, e.name));
 }
 
 const SCAN_BATCH_SIZE = 100;
@@ -67,8 +66,9 @@ export async function scanFolderRecursive(
   while (queue.length > 0) {
     if (signal?.aborted) break;
 
+    // biome-ignore lint/style/noNonNullAssertion: queue.length > 0 guard guarantees shift() returns a value
     const current = queue.shift()!;
-    let entries;
+    let entries: Dirent[];
     try {
       entries = await fsReaddir(current, { withFileTypes: true });
     } catch {
@@ -108,10 +108,7 @@ export async function scanFolderRecursive(
 }
 
 // Returns an unsubscribe function that stops the watcher.
-export function watchDirectory(
-  dirPath: string,
-  onChange: () => void,
-): () => void {
+export function watchDirectory(dirPath: string, onChange: () => void): () => void {
   const watcher = watch(dirPath, { persistent: false }, onChange);
   return () => watcher.close();
 }

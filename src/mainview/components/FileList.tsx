@@ -1,15 +1,15 @@
 import {
-  Virtualizer,
   elementScroll,
   observeElementOffset,
   observeElementRect,
+  Virtualizer,
 } from "@tanstack/virtual-core";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { useBrowserStore } from "../stores/browserStore";
 import { FileRow } from "./FileRow";
 import { SearchBar } from "./SearchBar";
-import { SessionFilter, getCompatibleKeys } from "./SessionFilter";
+import { getCompatibleKeys, SessionFilter } from "./SessionFilter";
 
 const ROW_HEIGHT = 36;
 
@@ -22,7 +22,9 @@ export function FileList() {
   // O(1) lookup from file path → index in fileList. Rebuilt only when fileList changes.
   const fileIndexMap = useMemo(() => {
     const map = new Map<string, number>();
-    fileList.forEach((f, i) => map.set(f.path, i));
+    fileList.forEach((f, i) => {
+      map.set(f.path, i);
+    });
     return map;
   }, [fileList]);
 
@@ -31,9 +33,7 @@ export function FileList() {
     if (sessionFilter.bpm !== null) {
       const bpm = sessionFilter.bpm;
       const tolerance = bpm * 0.06;
-      files = files.filter(
-        (f) => f.bpm != null && Math.abs(f.bpm - bpm) <= tolerance,
-      );
+      files = files.filter((f) => f.bpm != null && Math.abs(f.bpm - bpm) <= tolerance);
     }
     if (sessionFilter.key !== null) {
       const compatible = getCompatibleKeys(sessionFilter.key);
@@ -45,10 +45,7 @@ export function FileList() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [, rerender] = useState(0);
 
-  const virtualizerRef = useRef<Virtualizer<
-    HTMLDivElement,
-    HTMLDivElement
-  > | null>(null);
+  const virtualizerRef = useRef<Virtualizer<HTMLDivElement, HTMLDivElement> | null>(null);
   if (!virtualizerRef.current) {
     virtualizerRef.current = new Virtualizer({
       count: filteredFiles.length,
@@ -71,8 +68,8 @@ export function FileList() {
     onChange: () => flushSync(() => rerender((n) => n + 1)),
   });
 
-  useEffect(() => virtualizerRef.current!._didMount(), []);
-  useLayoutEffect(() => virtualizerRef.current!._willUpdate());
+  useEffect(() => virtualizerRef.current?._didMount(), []);
+  useLayoutEffect(() => virtualizerRef.current?._willUpdate());
 
   if (!activeFolder) {
     return (
@@ -98,9 +95,7 @@ export function FileList() {
         </div>
       ) : (
         <div ref={scrollRef} className="flex-1 overflow-y-auto">
-          <div
-            style={{ height: virtualizer.getTotalSize(), position: "relative" }}
-          >
+          <div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
             {virtualItems.map((item) => {
               const file = filteredFiles[item.index];
               const originalIndex = fileIndexMap.get(file.path) ?? -1;

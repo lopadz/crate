@@ -6,11 +6,7 @@ interface AnalysisState {
   queueStatus: { pending: number; running: number; total: number };
   fileStatuses: Record<string, FileAnalysisStatus>;
 
-  setQueueStatus: (status: {
-    pending: number;
-    running: number;
-    total: number;
-  }) => void;
+  setQueueStatus: (status: { pending: number; running: number; total: number }) => void;
   setFileStatus: (compositeId: string, status: FileAnalysisStatus) => void;
   setFileStatuses: (statuses: Record<string, FileAnalysisStatus>) => void;
 }

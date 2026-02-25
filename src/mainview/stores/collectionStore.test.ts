@@ -1,17 +1,13 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import type { AudioFile, Collection } from "../../shared/types";
 
-const {
-  mockCollectionGetAll,
-  mockCollectionCreate,
-  mockCollectionGetFiles,
-  mockCollectionDelete,
-} = vi.hoisted(() => ({
-  mockCollectionGetAll: vi.fn(),
-  mockCollectionCreate: vi.fn(),
-  mockCollectionGetFiles: vi.fn(),
-  mockCollectionDelete: vi.fn(),
-}));
+const { mockCollectionGetAll, mockCollectionCreate, mockCollectionGetFiles, mockCollectionDelete } =
+  vi.hoisted(() => ({
+    mockCollectionGetAll: vi.fn(),
+    mockCollectionCreate: vi.fn(),
+    mockCollectionGetFiles: vi.fn(),
+    mockCollectionDelete: vi.fn(),
+  }));
 
 vi.mock("../rpc", () => ({
   rpcClient: {

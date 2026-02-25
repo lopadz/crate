@@ -33,28 +33,22 @@ describe("NoteEditor", () => {
     mockDbGetNote.mockResolvedValue("My saved note");
     render(<NoteEditor compositeId="cid-1" />);
     await waitFor(() =>
-      expect(
-        (screen.getByTestId("note-editor") as HTMLTextAreaElement).value,
-      ).toBe("My saved note"),
+      expect((screen.getByTestId("note-editor") as HTMLTextAreaElement).value).toBe(
+        "My saved note",
+      ),
     );
     expect(mockDbGetNote).toHaveBeenCalledWith({ compositeId: "cid-1" });
   });
 
   test("re-loads note when compositeId changes", async () => {
-    mockDbGetNote
-      .mockResolvedValueOnce("Note A")
-      .mockResolvedValueOnce("Note B");
+    mockDbGetNote.mockResolvedValueOnce("Note A").mockResolvedValueOnce("Note B");
     const { rerender } = render(<NoteEditor compositeId="cid-1" />);
     await waitFor(() =>
-      expect(
-        (screen.getByTestId("note-editor") as HTMLTextAreaElement).value,
-      ).toBe("Note A"),
+      expect((screen.getByTestId("note-editor") as HTMLTextAreaElement).value).toBe("Note A"),
     );
     rerender(<NoteEditor compositeId="cid-2" />);
     await waitFor(() =>
-      expect(
-        (screen.getByTestId("note-editor") as HTMLTextAreaElement).value,
-      ).toBe("Note B"),
+      expect((screen.getByTestId("note-editor") as HTMLTextAreaElement).value).toBe("Note B"),
     );
     expect(mockDbGetNote).toHaveBeenCalledWith({ compositeId: "cid-2" });
   });
@@ -77,8 +71,6 @@ describe("NoteEditor", () => {
     mockDbGetNote.mockResolvedValue(null);
     render(<NoteEditor compositeId="cid-1" />);
     await waitFor(() => expect(mockDbGetNote).toHaveBeenCalled());
-    expect(
-      (screen.getByTestId("note-editor") as HTMLTextAreaElement).value,
-    ).toBe("");
+    expect((screen.getByTestId("note-editor") as HTMLTextAreaElement).value).toBe("");
   });
 });

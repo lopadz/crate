@@ -7,13 +7,7 @@ import { useBrowserStore } from "../stores/browserStore";
 import { formatDuration, formatSize } from "../utils/format";
 import { TagBadge } from "./TagBadge";
 
-function StarRating({
-  compositeId,
-  rating,
-}: {
-  compositeId: string;
-  rating: number | undefined;
-}) {
+function StarRating({ compositeId, rating }: { compositeId: string; rating: number | undefined }) {
   const setRating = useBrowserStore((s) => s.setRating);
 
   const handleStar = (e: React.MouseEvent, value: number) => {
@@ -82,12 +76,11 @@ export const FileRow = memo(
     }
 
     return (
+      // biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/useKeyWithClickEvents: file row is a desktop-app list item managed by keyboard nav hook
       <div
         data-testid="file-row"
         className={`relative flex items-center gap-2 px-3 text-sm cursor-pointer select-none h-9 ${
-          isSelected
-            ? "selected bg-indigo-600 text-white"
-            : "text-gray-300 hover:bg-[#252525]"
+          isSelected ? "selected bg-indigo-600 text-white" : "text-gray-300 hover:bg-[#252525]"
         }`}
         style={style}
         draggable={!isScanning}
@@ -112,63 +105,40 @@ export const FileRow = memo(
         </span>
 
         {isScanning && (
-          <span
-            data-testid="scanning-indicator"
-            className="text-gray-600 text-xs italic shrink-0"
-          >
+          <span data-testid="scanning-indicator" className="text-gray-600 text-xs italic shrink-0">
             scanning…
           </span>
         )}
 
         {!isScanning && (
           <>
-            <span className="text-gray-500 w-10 text-right shrink-0">
-              {file.extension}
-            </span>
+            <span className="text-gray-500 w-10 text-right shrink-0">{file.extension}</span>
 
             <span className="text-gray-500 w-12 text-right shrink-0">
               {file.duration != null ? formatDuration(file.duration) : "—"}
             </span>
 
-            <span className="text-gray-500 w-16 text-right shrink-0">
-              {formatSize(file.size)}
-            </span>
+            <span className="text-gray-500 w-16 text-right shrink-0">{formatSize(file.size)}</span>
 
-            <span
-              data-testid="col-bpm"
-              className="text-gray-500 w-12 text-right shrink-0"
-            >
+            <span data-testid="col-bpm" className="text-gray-500 w-12 text-right shrink-0">
               {file.bpm != null ? Math.round(file.bpm) : "—"}
             </span>
 
-            <span
-              data-testid="col-key"
-              className="text-gray-500 w-10 text-right shrink-0"
-            >
+            <span data-testid="col-key" className="text-gray-500 w-10 text-right shrink-0">
               {file.keyCamelot ?? "—"}
             </span>
 
-            <span
-              data-testid="col-lufs"
-              className="text-gray-500 w-14 text-right shrink-0"
-            >
-              {file.lufsIntegrated != null
-                ? Math.round(file.lufsIntegrated)
-                : "—"}
+            <span data-testid="col-lufs" className="text-gray-500 w-14 text-right shrink-0">
+              {file.lufsIntegrated != null ? Math.round(file.lufsIntegrated) : "—"}
             </span>
 
-            {file.compositeId && (
-              <StarRating compositeId={file.compositeId} rating={file.rating} />
-            )}
+            {file.compositeId && <StarRating compositeId={file.compositeId} rating={file.rating} />}
           </>
         )}
 
         {showTagPicker && (
           <div className="absolute left-2 top-full z-10">
-            <TagBadge
-              currentColor={file.colorTag ?? null}
-              onSelect={handleSelectTag}
-            />
+            <TagBadge currentColor={file.colorTag ?? null} onSelect={handleSelectTag} />
           </div>
         )}
       </div>

@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, test } from "vitest";
 import { useBrowserStore } from "../stores/browserStore";
-import { SessionFilter, getCompatibleKeys } from "./SessionFilter";
+import { getCompatibleKeys, SessionFilter } from "./SessionFilter";
 
 beforeEach(() => {
   useBrowserStore.setState({
@@ -23,9 +23,7 @@ describe("SessionFilter", () => {
 
   test("key select shows all 24 musical keys plus empty option", () => {
     render(<SessionFilter />);
-    const select = screen.getByTestId(
-      "session-filter-key",
-    ) as HTMLSelectElement;
+    const select = screen.getByTestId("session-filter-key") as HTMLSelectElement;
     expect(select.options.length).toBe(25); // 24 keys + "Any"
   });
 

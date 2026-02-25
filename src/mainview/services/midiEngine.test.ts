@@ -1,4 +1,4 @@
-import { vi, describe, test, expect, beforeEach } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import type { AudioFile } from "../../shared/types";
 
 // ── Hoisted mocks ─────────────────────────────────────────────────────────────
@@ -35,10 +35,12 @@ vi.mock("tone", () => ({
     cancel: mockTransportCancel,
     position: 0,
   },
+  // biome-ignore lint/complexity/useArrowFunction: function() required for vi.fn() constructor mock in Vitest 4.x
   Part: vi.fn().mockImplementation(function (cb: unknown, events: unknown) {
     mockPartConstructor(cb, events);
     return { start: mockPartStart, stop: mockPartStop, dispose: mockPartDispose };
   }),
+  // biome-ignore lint/complexity/useArrowFunction: function() required for vi.fn() constructor mock in Vitest 4.x
   PolySynth: vi.fn().mockImplementation(function () {
     return { toDestination: mockToDestination };
   }),
@@ -53,6 +55,7 @@ const mockNotes = [
 ];
 
 vi.mock("@tonejs/midi", () => ({
+  // biome-ignore lint/complexity/useArrowFunction: function() required for vi.fn() constructor mock in Vitest 4.x
   Midi: vi.fn().mockImplementation(function () {
     return {
       tracks: [
