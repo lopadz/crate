@@ -38,9 +38,61 @@ export class AudioEngine {
   private pauseOffset = 0;
   private startedAt = 0;
 
+  // Web Worker for base64 → ArrayBuffer conversion. Created lazily on first use
+  // so test environments (no Worker global) are unaffected.
+  private decodeWorker: Worker | null = null;
+  private workerPending = new Map<
+    number,
+    { resolve: (buf: ArrayBuffer) => void; reject: (err: Error) => void }
+  >();
+  private nextDecodeId = 0;
+
   private getCtx(): AudioContext {
     if (!this.ctx) this.ctx = new AudioContext();
     return this.ctx;
+  }
+
+  private getDecodeWorker(): Worker | null {
+    if (this.decodeWorker) return this.decodeWorker;
+    if (typeof Worker === "undefined") return null;
+    this.decodeWorker = new Worker(
+      new URL("./decodeWorker.ts", import.meta.url),
+      { type: "module" },
+    );
+    this.decodeWorker.onmessage = (
+      e: MessageEvent<{ id: number; buffer?: ArrayBuffer; error?: string }>,
+    ) => {
+      const { id, buffer, error } = e.data;
+      const pending = this.workerPending.get(id);
+      if (!pending) return;
+      this.workerPending.delete(id);
+      if (error || !buffer) {
+        pending.reject(new Error(error ?? "Worker decode failed"));
+      } else {
+        pending.resolve(buffer);
+      }
+    };
+    return this.decodeWorker;
+  }
+
+  // Decode base64 → ArrayBuffer in the worker thread (zero main-thread blocking
+  // beyond the postMessage string copy, which is a fast memcpy ~1–5ms).
+  // Falls back to synchronous decode in environments without Worker support.
+  private decodeBase64(base64: string): Promise<ArrayBuffer> {
+    const worker = this.getDecodeWorker();
+    if (!worker) {
+      // Sync fallback (test environments / no Worker support)
+      const binaryStr = atob(base64);
+      const len = binaryStr.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) bytes[i] = binaryStr.charCodeAt(i);
+      return Promise.resolve(bytes.buffer);
+    }
+    return new Promise((resolve, reject) => {
+      const id = ++this.nextDecodeId;
+      this.workerPending.set(id, { resolve, reject });
+      worker.postMessage({ id, base64 });
+    });
   }
 
   private decodeFile(file: AudioFile): Promise<AudioBuffer> {
@@ -61,11 +113,9 @@ export class AudioEngine {
     const base64 = await rpcClient?.request.fsReadAudio({ path: file.path });
     if (!base64) throw new Error(`Failed to read audio: ${file.path}`);
 
-    // Decode base64 via fetch(data:) so the conversion runs on WebKit's network thread
-    // instead of the JS main thread — keeps hover effects and paint responsive.
-    const arrayBuffer = await fetch(
-      `data:application/octet-stream;base64,${base64}`,
-    ).then((r) => r.arrayBuffer());
+    // Decode base64 → ArrayBuffer in the worker — atob + byte-copy loop run
+    // entirely off the main thread, keeping hover effects and paint responsive.
+    const arrayBuffer = await this.decodeBase64(base64);
 
     // Create blob URL before decodeAudioData in case the impl transfers the buffer
     if (!this.blobUrlCache.has(file.path)) {
@@ -213,6 +263,9 @@ export class AudioEngine {
     this.cache.clear();
     this.measuredDbCache.clear();
     this.pending.clear();
+    this.decodeWorker?.terminate();
+    this.decodeWorker = null;
+    this.workerPending.clear();
     for (const url of this.blobUrlCache.values()) {
       URL.revokeObjectURL(url);
     }
