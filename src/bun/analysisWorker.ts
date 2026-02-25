@@ -12,6 +12,7 @@
 import { detectBpm } from "./bpmDetection";
 import { detectKey } from "./keyDetection";
 import { measureLufs } from "./lufs";
+import { parseWavChunks, readUint16LE, readUint32LE } from "./wavUtils";
 
 // ─── WAV decoder ──────────────────────────────────────────────────────────────
 
@@ -20,28 +21,11 @@ interface WavData {
   sampleRate: number;
 }
 
-function r16(buf: Uint8Array, o: number): number {
-  return buf[o] | (buf[o + 1] << 8);
-}
-function r32(buf: Uint8Array, o: number): number {
-  return (buf[o] | (buf[o + 1] << 8) | (buf[o + 2] << 16) | (buf[o + 3] << 24)) >>> 0;
-}
-
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: PCM sample-type branching is inherently complex
 function decodeWav(buffer: ArrayBuffer): WavData | null {
   const buf = new Uint8Array(buffer);
-
-  // RIFF/WAVE magic
-  if (
-    buf[0] !== 0x52 ||
-    buf[1] !== 0x49 ||
-    buf[2] !== 0x46 ||
-    buf[3] !== 0x46 || // RIFF
-    buf[8] !== 0x57 ||
-    buf[9] !== 0x41 ||
-    buf[10] !== 0x56 ||
-    buf[11] !== 0x45 // WAVE
-  )
-    return null;
+  const chunks = parseWavChunks(buf);
+  if (!chunks) return null;
 
   let fmtTag = 0,
     channels = 0,
@@ -50,27 +34,20 @@ function decodeWav(buffer: ArrayBuffer): WavData | null {
   let dataOffset = -1,
     dataSize = -1;
 
-  let offset = 12;
-  while (offset + 8 <= buf.length) {
-    const id = String.fromCharCode(buf[offset], buf[offset + 1], buf[offset + 2], buf[offset + 3]);
-    const size = r32(buf, offset + 4);
-    offset += 8;
-
-    if (id === "fmt ") {
-      fmtTag = r16(buf, offset); // 1=PCM, 3=IEEE float, 65534=extensible
-      channels = r16(buf, offset + 2);
-      sampleRate = r32(buf, offset + 4);
-      bitDepth = r16(buf, offset + 14);
+  for (const chunk of chunks) {
+    if (chunk.id === "fmt ") {
+      fmtTag = readUint16LE(buf, chunk.offset); // 1=PCM, 3=IEEE float, 65534=extensible
+      channels = readUint16LE(buf, chunk.offset + 2);
+      sampleRate = readUint32LE(buf, chunk.offset + 4);
+      bitDepth = readUint16LE(buf, chunk.offset + 14);
       // For extensible format, real format is in the extension
-      if (fmtTag === 65534 && size >= 18) {
-        fmtTag = r16(buf, offset + 16); // sub-format GUID low bytes
+      if (fmtTag === 65534 && chunk.size >= 18) {
+        fmtTag = readUint16LE(buf, chunk.offset + 16); // sub-format GUID low bytes
       }
-    } else if (id === "data") {
-      dataOffset = offset;
-      dataSize = size;
+    } else if (chunk.id === "data") {
+      dataOffset = chunk.offset;
+      dataSize = chunk.size;
     }
-
-    offset += size + (size & 1); // word-align
     if (channels > 0 && dataOffset >= 0) break;
   }
 
