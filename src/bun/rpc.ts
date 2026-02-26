@@ -67,6 +67,7 @@ export function createRpc(
                   lufsIntegrated: data.lufsIntegrated ?? undefined,
                   lufsPeak: data.lufsPeak ?? undefined,
                   dynamicRange: data.dynamicRange ?? undefined,
+                  rating: data.rating,
                 }
               : f;
           });

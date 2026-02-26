@@ -471,6 +471,7 @@ export function createQueryHelpers(db: Database) {
         lufsIntegrated: number | null;
         lufsPeak: number | null;
         dynamicRange: number | null;
+        rating: number | undefined;
       }
     > {
       const result = new Map<
@@ -484,6 +485,7 @@ export function createQueryHelpers(db: Database) {
           lufsIntegrated: number | null;
           lufsPeak: number | null;
           dynamicRange: number | null;
+          rating: number | undefined;
         }
       >();
       if (paths.length === 0) return result;
@@ -501,6 +503,7 @@ export function createQueryHelpers(db: Database) {
             dynamic_range: number | null;
           } | null;
           if (row) {
+            const ratingRow = getRatingStmt.get(row.composite_id) as { value: number } | null;
             result.set(path, {
               compositeId: row.composite_id,
               colorTag: (row.color_tag as TagColor) ?? null,
@@ -510,6 +513,7 @@ export function createQueryHelpers(db: Database) {
               lufsIntegrated: row.lufs_integrated,
               lufsPeak: row.lufs_peak,
               dynamicRange: row.dynamic_range,
+              rating: ratingRow?.value ?? undefined,
             });
           }
         }

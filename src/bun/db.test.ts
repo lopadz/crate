@@ -605,6 +605,32 @@ describe("ratings", () => {
   });
 });
 
+// ─── getFilesDataBatch — rating field ────────────────────────────────────────
+
+describe("getFilesDataBatch — rating", () => {
+  let db: ReturnType<typeof makeDb>;
+  let q: ReturnType<typeof createQueryHelpers>;
+
+  beforeEach(() => {
+    db = makeDb();
+    q = createQueryHelpers(db);
+    db.run(
+      `INSERT INTO files (path, composite_id, last_seen_at) VALUES ('/a/kick.wav', 'batch-cid-1', 0)`,
+    );
+  });
+
+  test("returns rating when one has been set for the file", () => {
+    q.setRating("batch-cid-1", 4);
+    const result = q.getFilesDataBatch(["/a/kick.wav"]);
+    expect(result.get("/a/kick.wav")?.rating).toBe(4);
+  });
+
+  test("returns undefined rating when no rating has been set", () => {
+    const result = q.getFilesDataBatch(["/a/kick.wav"]);
+    expect(result.get("/a/kick.wav")?.rating).toBeUndefined();
+  });
+});
+
 // ─── file_operations_log helpers ─────────────────────────────────────────────
 
 describe("logOperation / getOperationsLog / markRolledBack", () => {
