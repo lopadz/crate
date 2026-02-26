@@ -46,7 +46,7 @@ function handleSpace(e: KeyboardEvent): void {
   const { isPlaying, currentFile } = usePlaybackStore.getState();
   if (isPlaying) {
     if (currentFile && isMidi(currentFile)) midiEngine.stop();
-    else audioEngine.stop();
+    else audioEngine.pause();
     return;
   }
   const file = fileList[selectedIndex] ?? currentFile;

@@ -4,19 +4,19 @@ import type { AudioFile } from "../../shared/types";
 
 // ── audioEngine mock ──────────────────────────────────────────────────────────
 
-const { mockPlay, mockStop, mockSeek, mockDbSetColorTag, mockMidiPlay, mockMidiStop } = vi.hoisted(
-  () => ({
+const { mockPlay, mockPause, mockStop, mockSeek, mockDbSetColorTag, mockMidiPlay, mockMidiStop } =
+  vi.hoisted(() => ({
     mockPlay: vi.fn().mockResolvedValue(undefined),
+    mockPause: vi.fn(),
     mockStop: vi.fn(),
     mockSeek: vi.fn(),
     mockDbSetColorTag: vi.fn(),
     mockMidiPlay: vi.fn().mockResolvedValue(undefined),
     mockMidiStop: vi.fn(),
-  }),
-);
+  }));
 
 vi.mock("../services/audioEngine", () => ({
-  audioEngine: { play: mockPlay, stop: mockStop, seek: mockSeek },
+  audioEngine: { play: mockPlay, pause: mockPause, stop: mockStop, seek: mockSeek },
 }));
 
 vi.mock("../services/midiEngine", () => ({
@@ -146,7 +146,7 @@ describe("useKeyboardNav", () => {
     expect(mockPlay).toHaveBeenCalledWith(files[2], expect.any(Array));
   });
 
-  test("Space while playing calls audioEngine.stop()", () => {
+  test("Space while playing calls audioEngine.pause()", () => {
     usePlaybackStore.setState({
       ...usePlaybackStore.getState(),
       isPlaying: true,
@@ -154,7 +154,8 @@ describe("useKeyboardNav", () => {
     });
     renderHook(() => useKeyboardNav());
     press(" ");
-    expect(mockStop).toHaveBeenCalledOnce();
+    expect(mockPause).toHaveBeenCalledOnce();
+    expect(mockStop).not.toHaveBeenCalled();
     expect(mockPlay).not.toHaveBeenCalled();
   });
 
