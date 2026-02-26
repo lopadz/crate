@@ -1,5 +1,5 @@
 import { act, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { AudioFile } from "../../shared/types";
 
 // ── Hoisted mock handles (must precede vi.mock hoisting) ─────────────────────
@@ -11,6 +11,7 @@ const {
   mockOn,
   mockCreate,
   mockSeek,
+  mockGetPosition,
   mockSeekTo,
   mockGetBlobUrl,
 } = vi.hoisted(() => ({
@@ -20,6 +21,7 @@ const {
   mockOn: vi.fn(),
   mockCreate: vi.fn(),
   mockSeek: vi.fn(),
+  mockGetPosition: vi.fn().mockReturnValue(0),
   mockSeekTo: vi.fn(),
   mockGetBlobUrl: vi.fn().mockReturnValue("blob:mock://test"),
 }));
@@ -33,7 +35,7 @@ vi.mock("wavesurfer.js", () => ({
 // ── audioEngine mock ──────────────────────────────────────────────────────────
 
 vi.mock("../services/audioEngine", () => ({
-  audioEngine: { seek: mockSeek, getBlobUrl: mockGetBlobUrl },
+  audioEngine: { seek: mockSeek, getPosition: mockGetPosition, getBlobUrl: mockGetBlobUrl },
 }));
 
 // ── Imports (after mocks) ─────────────────────────────────────────────────────
@@ -147,14 +149,68 @@ describe("Waveform", () => {
     expect(mockSeekTo).toHaveBeenLastCalledWith(0);
   });
 
-  test("seeking event calls audioEngine.seek with current time", async () => {
+  test("does not start RAF loop when not playing", () => {
+    const mockRaf = vi.fn();
+    vi.stubGlobal("requestAnimationFrame", mockRaf);
     render(<Waveform />);
-    // Capture the seeking callback registered via ws.on("seeking", cb)
-    const seekHandler = mockOn.mock.calls.find(([event]) => event === "seeking")?.[1] as
+    expect(mockRaf).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
+  test("interaction event calls audioEngine.seek with current time", async () => {
+    render(<Waveform />);
+    // Capture the interaction callback registered via ws.on("interaction", cb)
+    const interactionHandler = mockOn.mock.calls.find(([event]) => event === "interaction")?.[1] as
       | ((currentTime: number) => void)
       | undefined;
-    expect(seekHandler).toBeDefined();
-    act(() => seekHandler?.(5));
+    expect(interactionHandler).toBeDefined();
+    act(() => interactionHandler?.(5));
     expect(mockSeek).toHaveBeenCalledWith(5);
+  });
+});
+
+describe("Waveform — cursor sync", () => {
+  let rafCallback: FrameRequestCallback | null = null;
+  const mockRaf = vi.fn().mockImplementation((cb: FrameRequestCallback) => {
+    rafCallback = cb;
+    return 1;
+  });
+  const mockCaf = vi.fn();
+
+  beforeEach(() => {
+    vi.stubGlobal("requestAnimationFrame", mockRaf);
+    vi.stubGlobal("cancelAnimationFrame", mockCaf);
+    rafCallback = null;
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  test("seeks WaveSurfer to the fractional audio position on each RAF tick", () => {
+    mockGetPosition.mockReturnValue(3); // 3s into a 10s file → seekTo(0.3)
+    render(<Waveform />);
+    act(() => usePlaybackStore.setState({ ...usePlaybackStore.getState(), isPlaying: true }));
+    act(() => {
+      rafCallback?.(16);
+    });
+    expect(mockSeekTo).toHaveBeenCalledWith(0.3);
+  });
+
+  test("wraps position past duration on loop (seekTo reflects looped position)", () => {
+    mockGetPosition.mockReturnValue(12); // 12s elapsed, duration=10 → 12%10=2 → seekTo(0.2)
+    render(<Waveform />);
+    act(() => usePlaybackStore.setState({ ...usePlaybackStore.getState(), isPlaying: true }));
+    act(() => {
+      rafCallback?.(16);
+    });
+    expect(mockSeekTo).toHaveBeenCalledWith(0.2);
+  });
+
+  test("cancels the RAF loop when playback stops", () => {
+    render(<Waveform />);
+    act(() => usePlaybackStore.setState({ ...usePlaybackStore.getState(), isPlaying: true }));
+    act(() => usePlaybackStore.setState({ ...usePlaybackStore.getState(), isPlaying: false }));
+    expect(mockCaf).toHaveBeenCalledWith(1);
   });
 });

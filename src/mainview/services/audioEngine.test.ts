@@ -380,4 +380,16 @@ describe("AudioEngine — seek", () => {
     await engine.play(next); // different file — must ignore the stale offset
     expect(mockStart).toHaveBeenCalledWith(0, 0);
   });
+
+  test("getPosition() returns 0 when idle", () => {
+    expect(engine.getPosition()).toBe(0);
+  });
+
+  test("getPosition() returns the seek position when paused at a seek point", async () => {
+    await engine.play(file);
+    engine.pause();
+    engine.seek(3.5);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(engine.getPosition()).toBe(3.5);
+  });
 });

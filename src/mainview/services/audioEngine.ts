@@ -214,6 +214,12 @@ export class AudioEngine {
     }
   }
 
+  /** Returns the current playback position in seconds. */
+  getPosition(): number {
+    if (!this.source || !this.ctx) return this.pauseOffset;
+    return this.ctx.currentTime - this.startedAt;
+  }
+
   seek(position: number): void {
     const { isPlaying, currentFile } = usePlaybackStore.getState();
     this.stop();
