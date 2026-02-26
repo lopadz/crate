@@ -46,6 +46,29 @@ export interface Collection {
   queryJson: string | null;
 }
 
+// ─── Phase 3 RPC shared shapes ───────────────────────────────────────────────
+// Defined here so CrateRPC can reference them without importing from bun/
+
+type FileOpEntry = { originalPath: string; newPath: string };
+type OpsRecord = {
+  id: number;
+  operation: string;
+  files: FileOpEntry[];
+  timestamp: number;
+  rolledBackAt: number | null;
+};
+type MetadataWriteJobRpc = {
+  path: string;
+  bpm?: number | null;
+  key?: string | null;
+  lufs?: number | null;
+};
+type DuplicateGroupRpc = { fingerprint: string; files: string[]; reason: "exact-name" | "content" };
+type FolderRuleRpc = { tags: string[]; targetPath: string };
+type FolderTemplateRpc = { name: string; rules: FolderRuleRpc[]; fallbackPath?: string };
+type MovePreviewRpc = { sourcePath: string; destPath: string; matched: boolean };
+type FileWithTagsRpc = { path: string; tags: string[] };
+
 // ─── Electrobun typed RPC schema ─────────────────────────────────────────────
 //
 // Bun side  → handles requests/messages FROM the renderer
@@ -124,6 +147,24 @@ export type CrateRPC = {
         params: { collectionId: number };
         response: AudioFile[];
       };
+      // Phase 3 — file operations
+      opsRenameFiles: { params: { jobs: FileOpEntry[] }; response: OpsRecord };
+      opsGetLog: { params: Record<string, never>; response: OpsRecord[] };
+      opsUndo: { params: { recordId: number }; response: undefined };
+      // Phase 3 — conversion
+      convertBatch: { params: { paths: string[]; presetId: string }; response: undefined };
+      convertCancel: { params: Record<string, never>; response: undefined };
+      // Phase 3 — metadata
+      metadataBatchWrite: { params: { jobs: MetadataWriteJobRpc[] }; response: OpsRecord };
+      // Phase 3 — duplicates
+      dupesScan: { params: { folderPaths: string[] }; response: DuplicateGroupRpc[] };
+      dupesResolve: { params: { keep: string; toDelete: string[] }; response: undefined };
+      // Phase 3 — folder organize
+      organizePreview: {
+        params: { template: FolderTemplateRpc; files: FileWithTagsRpc[] };
+        response: MovePreviewRpc[];
+      };
+      organizeExecute: { params: { previews: MovePreviewRpc[] }; response: OpsRecord };
     };
     messages: {
       // Settings
@@ -166,6 +207,11 @@ export type CrateRPC = {
         lufsPeak: number;
         dynamicRange: number;
       };
+      // Phase 3 — conversion progress
+      convertProgress: { fileId: string; percent: number };
+      convertComplete: { fileId: string; outputPath: string };
+      // Phase 3 — undo availability
+      opsUndoAvailable: { recordId: number; operation: string };
     };
   }>;
 };

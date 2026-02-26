@@ -1,11 +1,17 @@
 import { BrowserView, Utils } from "electrobun/bun";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import type { CrateRPC } from "../shared/types";
 import type { AnalysisError, AnalysisResult } from "./analysisQueue";
 import { AnalysisQueue } from "./analysisQueue";
 import { audioServerBaseUrl, audioServerToken } from "./audioServer";
 import { queries } from "./db";
 import { createDragCopy } from "./dragDrop";
+import { findDuplicates } from "./duplicateFinder";
+import { getOperationsLog, renameFiles, undoOperation } from "./fileOps";
 import { listDirs, readdir, scanFolderRecursive, watchDirectory } from "./filesystem";
+import { executeOrganize, previewOrganize } from "./folderOrganizer";
+import { writeMetadataToFile } from "./metadataWriter";
 
 // Active directory watchers — keyed by path
 const watchers = new Map<string, () => void>();
@@ -162,6 +168,49 @@ export function createRpc(
             compositeId: f.compositeId,
           }));
         },
+
+        // Phase 3 — file operations
+        opsRenameFiles: ({ jobs }) => renameFiles(jobs, queries),
+
+        opsGetLog: () => getOperationsLog(queries),
+
+        opsUndo: async ({ recordId }) => {
+          const record = getOperationsLog(queries).find((r) => r.id === recordId);
+          if (!record) throw new Error(`Operation record ${recordId} not found`);
+          await undoOperation(record, queries);
+        },
+
+        // Phase 3 — conversion (requires Mediabunny adapter; stub for now)
+        convertBatch: async (_params) => {},
+        convertCancel: async () => {},
+
+        // Phase 3 — metadata
+        metadataBatchWrite: async ({ jobs }) => {
+          for (const job of jobs) await writeMetadataToFile(job);
+          const entries = jobs.map((j) => ({ originalPath: j.path, newPath: j.path }));
+          const timestamp = Date.now();
+          const id = queries.logOperation({
+            operation: "metadata_write",
+            filesJson: JSON.stringify(entries),
+          });
+          return { id, operation: "metadata_write", files: entries, timestamp, rolledBackAt: null };
+        },
+
+        // Phase 3 — duplicates
+        dupesScan: ({ folderPaths }) => findDuplicates(folderPaths),
+
+        dupesResolve: ({ toDelete }) => {
+          for (const p of toDelete) fs.rmSync(p, { force: true });
+          return undefined;
+        },
+
+        // Phase 3 — folder organize
+        organizePreview: ({ template, files }) => {
+          const baseDir = files.length > 0 ? path.dirname(files[0].path) : "";
+          return previewOrganize(files, template, baseDir);
+        },
+
+        organizeExecute: ({ previews }) => executeOrganize(previews, queries),
       },
 
       messages: {
