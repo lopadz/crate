@@ -49,6 +49,47 @@ export async function listDirs(dirPath: string): Promise<string[]> {
 
 const SCAN_BATCH_SIZE = 100;
 
+async function readDirEntries(dirPath: string): Promise<Dirent[] | null> {
+  try {
+    return await fsReaddir(dirPath, { withFileTypes: true });
+  } catch {
+    return null; // permission denied or other OS error — skip this dir
+  }
+}
+
+async function statAudioFile(entry: Dirent, dirPath: string): Promise<AudioFile | null> {
+  if (!entry.isFile() || !isAudioFile(entry.name)) return null;
+  const filePath = join(dirPath, entry.name);
+  try {
+    const info = await stat(filePath);
+    return {
+      path: filePath,
+      name: entry.name,
+      extension: extname(entry.name).toLowerCase(),
+      size: info.size,
+    };
+  } catch {
+    return null; // file disappeared between readdir and stat
+  }
+}
+
+async function processDirEntries(
+  entries: Dirent[],
+  current: string,
+): Promise<{ audioFiles: AudioFile[]; subDirs: string[] }> {
+  const audioFiles: AudioFile[] = [];
+  const subDirs: string[] = [];
+  for (const entry of entries) {
+    if (entry.isDirectory()) {
+      subDirs.push(join(current, entry.name));
+      continue;
+    }
+    const file = await statAudioFile(entry, current);
+    if (file) audioFiles.push(file);
+  }
+  return { audioFiles, subDirs };
+}
+
 /**
  * Recursively walks dirPath (breadth-first) and calls onBatch with groups of
  * audio files. Non-blocking: each readdir awaits independently, yielding back
@@ -68,34 +109,15 @@ export async function scanFolderRecursive(
 
     // biome-ignore lint/style/noNonNullAssertion: queue.length > 0 guard guarantees shift() returns a value
     const current = queue.shift()!;
-    let entries: Dirent[];
-    try {
-      entries = await fsReaddir(current, { withFileTypes: true });
-    } catch {
-      continue; // permission denied or other OS error — skip this dir
-    }
+    const entries = await readDirEntries(current);
+    if (!entries) continue;
 
-    for (const entry of entries) {
-      if (entry.isDirectory()) {
-        queue.push(join(current, entry.name));
-        continue;
-      }
-      if (!entry.isFile() || !isAudioFile(entry.name)) continue;
+    const { audioFiles, subDirs } = await processDirEntries(entries, current);
+    for (const d of subDirs) queue.push(d);
 
-      const filePath = join(current, entry.name);
-      try {
-        const info = await stat(filePath);
-        batch.push({
-          path: filePath,
-          name: entry.name,
-          extension: extname(entry.name).toLowerCase(),
-          size: info.size,
-        });
-        total++;
-      } catch {
-        continue; // file disappeared between readdir and stat
-      }
-
+    for (const file of audioFiles) {
+      batch.push(file);
+      total++;
       if (batch.length >= SCAN_BATCH_SIZE) {
         onBatch(batch);
         batch = [];
