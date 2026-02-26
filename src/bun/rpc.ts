@@ -1,6 +1,6 @@
-import { BrowserView, Utils } from "electrobun/bun";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { BrowserView, Utils } from "electrobun/bun";
 import type { CrateRPC } from "../shared/types";
 import type { AnalysisError, AnalysisResult } from "./analysisQueue";
 import { AnalysisQueue } from "./analysisQueue";
