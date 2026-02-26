@@ -20,7 +20,7 @@ export type FileOpEntry = {
 
 export type OperationRecord = {
   id: number;
-  operation: "rename" | "move" | "copy" | "convert" | "normalize";
+  operation: "rename" | "move" | "copy" | "convert" | "normalize" | "metadata_write";
   files: FileOpEntry[];
   timestamp: number;
   rolledBackAt: number | null;
