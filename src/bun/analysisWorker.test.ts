@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, mock, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 
 // ── audio-decode mock (must be called before importing analysisWorker) ─────────
 //
@@ -80,15 +80,15 @@ describe("decodeAudio", () => {
     const buf = makeSineWav(1, 1);
     const result = await decodeAudio(buf, "test.wav");
     expect(result).not.toBeNull();
-    expect(result!.sampleRate).toBe(44100);
-    expect(result!.mono.length).toBe(44100);
+    expect(result?.sampleRate).toBe(44100);
+    expect(result?.mono.length).toBe(44100);
   });
 
   test("MP3 file falls through to audio-decode and returns non-null data", async () => {
     const buf = new ArrayBuffer(100); // dummy bytes — audio-decode is mocked
     const result = await decodeAudio(buf, "kick.mp3");
     expect(result).not.toBeNull();
-    expect(result!.sampleRate).toBe(44100);
+    expect(result?.sampleRate).toBe(44100);
   });
 
   test("FLAC file falls through to audio-decode and returns non-null data", async () => {
@@ -126,6 +126,6 @@ describe("decodeAudio", () => {
     const result = await decodeAudio(buf, "stereo.wav");
     expect(result).not.toBeNull();
     // mono length should equal numSamples (not numSamples * channels)
-    expect(result!.mono.length).toBe(sampleRate);
+    expect(result?.mono.length).toBe(sampleRate);
   });
 });
