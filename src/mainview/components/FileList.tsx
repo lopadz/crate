@@ -94,28 +94,44 @@ export function FileList() {
           No audio files in this folder
         </div>
       ) : (
-        <div ref={scrollRef} className="flex-1 overflow-y-auto">
-          <div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
-            {virtualItems.map((item) => {
-              const file = filteredFiles[item.index];
-              const originalIndex = fileIndexMap.get(file.path) ?? -1;
-              return (
-                <FileRow
-                  key={item.key}
-                  file={file}
-                  isSelected={originalIndex === selectedIndex}
-                  originalIndex={originalIndex}
-                  style={{
-                    position: "absolute",
-                    top: item.start,
-                    width: "100%",
-                    height: item.size,
-                  }}
-                />
-              );
-            })}
+        <>
+          <div
+            data-testid="column-header"
+            className="flex items-center gap-2 px-3 text-[11px] text-gray-600 border-b border-[#1e1e1e] h-7 shrink-0 select-none"
+          >
+            <span className="w-2 shrink-0" />
+            <span className="flex-1">Name</span>
+            <span className="w-10 text-right shrink-0">Type</span>
+            <span className="w-12 text-right shrink-0">Dur</span>
+            <span className="w-16 text-right shrink-0">Size</span>
+            <span className="w-12 text-right shrink-0">BPM</span>
+            <span className="w-10 text-right shrink-0">Key</span>
+            <span className="w-14 text-right shrink-0">LUFS</span>
+            <span className="w-[62px] text-right shrink-0">Rating</span>
           </div>
-        </div>
+          <div ref={scrollRef} className="flex-1 overflow-y-auto">
+            <div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
+              {virtualItems.map((item) => {
+                const file = filteredFiles[item.index];
+                const originalIndex = fileIndexMap.get(file.path) ?? -1;
+                return (
+                  <FileRow
+                    key={item.key}
+                    file={file}
+                    isSelected={originalIndex === selectedIndex}
+                    originalIndex={originalIndex}
+                    style={{
+                      position: "absolute",
+                      top: item.start,
+                      width: "100%",
+                      height: item.size,
+                    }}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

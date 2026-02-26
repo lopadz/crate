@@ -123,6 +123,36 @@ describe("FileList", () => {
   });
 });
 
+describe("FileList — column header", () => {
+  beforeEach(() => {
+    useBrowserStore.setState({
+      ...useBrowserStore.getState(),
+      activeFolder: "/Samples",
+      fileList: sampleFiles,
+    });
+  });
+
+  test("renders column header row when files are present", () => {
+    render(<FileList />);
+    expect(screen.getByTestId("column-header")).toBeDefined();
+  });
+
+  test("column header shows BPM, Key, LUFS, Rating labels", () => {
+    render(<FileList />);
+    const header = screen.getByTestId("column-header");
+    expect(header.textContent).toContain("BPM");
+    expect(header.textContent).toContain("Key");
+    expect(header.textContent).toContain("LUFS");
+    expect(header.textContent).toContain("Rating");
+  });
+
+  test("column header not shown when no folder is active", () => {
+    useBrowserStore.setState({ ...useBrowserStore.getState(), activeFolder: null });
+    render(<FileList />);
+    expect(screen.queryByTestId("column-header")).toBeNull();
+  });
+});
+
 describe("FileList — session filter", () => {
   // a: 128 BPM, Am key   — BPM IN range, key compatible with Am
   // b: 121 BPM, Bb key   — BPM IN range (128±7.68), key NOT compatible with Am
