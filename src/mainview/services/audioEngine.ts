@@ -24,6 +24,7 @@ function computeMeasuredDb(buffer: AudioBuffer): number {
 
 export class AudioEngine {
   private ctx: AudioContext | null = null;
+  private masterGain: GainNode | null = null;
   private source: AudioBufferSourceNode | null = null;
   private cache = new Map<string, AudioBuffer>();
   // Caches the expensive per-sample RMS computation. Invalidated on cache eviction.
@@ -65,6 +66,21 @@ export class AudioEngine {
   private getCtx(): AudioContext {
     if (!this.ctx) this.ctx = new AudioContext();
     return this.ctx;
+  }
+
+  private getMasterGain(): GainNode {
+    const ctx = this.getCtx();
+    if (!this.masterGain) {
+      this.masterGain = ctx.createGain();
+      this.masterGain.gain.value = usePlaybackStore.getState().volume;
+      this.masterGain.connect(ctx.destination);
+    }
+    return this.masterGain;
+  }
+
+  /** Set the master output volume (0–1). Takes effect immediately. */
+  setVolume(vol: number): void {
+    this.getMasterGain().gain.value = vol;
   }
 
   private decodeFile(file: AudioFile): Promise<AudioBuffer> {
@@ -145,6 +161,7 @@ export class AudioEngine {
     const source = ctx.createBufferSource();
     source.buffer = buffer;
 
+    const masterGain = this.getMasterGain();
     const { normalizeVolume, normalizationTargetLufs } = useSettingsStore.getState();
     if (normalizeVolume) {
       const gainNode = ctx.createGain();
@@ -154,9 +171,9 @@ export class AudioEngine {
       this.measuredDbCache.set(file.path, measuredDb);
       gainNode.gain.value = 10 ** ((normalizationTargetLufs - measuredDb) / 20);
       source.connect(gainNode);
-      gainNode.connect(ctx.destination);
+      gainNode.connect(masterGain);
     } else {
-      source.connect(ctx.destination);
+      source.connect(masterGain);
     }
 
     source.loop = usePlaybackStore.getState().loop;
@@ -232,6 +249,8 @@ export class AudioEngine {
 
   dispose(): void {
     this.stop();
+    this.masterGain?.disconnect();
+    this.masterGain = null;
     this.ctx?.close();
     this.ctx = null;
     this.cache.clear();

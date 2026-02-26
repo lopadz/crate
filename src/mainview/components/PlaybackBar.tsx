@@ -110,7 +110,11 @@ export function PlaybackBar() {
           max={1}
           step={0.01}
           value={volume}
-          onChange={(e) => setVolume(Number(e.target.value))}
+          onChange={(e) => {
+            const vol = Number(e.target.value);
+            setVolume(vol);
+            audioEngine.setVolume(vol);
+          }}
           className="w-20 accent-indigo-500"
           aria-label="Volume"
         />

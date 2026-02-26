@@ -5,16 +5,16 @@ import type { AudioFile } from "../../shared/types";
 import { useBrowserStore } from "../stores/browserStore";
 import { usePlaybackStore } from "../stores/playbackStore";
 
-const { mockPlay, mockStop, mockPause, mockSetLoop, mockSeek, mockGetPosition } = vi.hoisted(
-  () => ({
+const { mockPlay, mockStop, mockPause, mockSetLoop, mockSeek, mockGetPosition, mockSetVolume } =
+  vi.hoisted(() => ({
     mockPlay: vi.fn().mockResolvedValue(undefined),
     mockStop: vi.fn(),
     mockPause: vi.fn(),
     mockSetLoop: vi.fn(),
     mockSeek: vi.fn(),
     mockGetPosition: vi.fn().mockReturnValue(0),
-  }),
-);
+    mockSetVolume: vi.fn(),
+  }));
 
 vi.mock("../services/audioEngine", () => ({
   audioEngine: {
@@ -24,6 +24,7 @@ vi.mock("../services/audioEngine", () => ({
     setLoop: mockSetLoop,
     seek: mockSeek,
     getPosition: mockGetPosition,
+    setVolume: mockSetVolume,
   },
 }));
 
@@ -170,6 +171,13 @@ describe("PlaybackBar — volume", () => {
     const slider = screen.getByTestId("volume-slider");
     fireEvent.change(slider, { target: { value: "0.3" } });
     expect(setVolume).toHaveBeenCalledWith(0.3);
+  });
+
+  test("changing volume slider calls audioEngine.setVolume", () => {
+    render(<PlaybackBar />);
+    const slider = screen.getByTestId("volume-slider");
+    fireEvent.change(slider, { target: { value: "0.6" } });
+    expect(mockSetVolume).toHaveBeenCalledWith(0.6);
   });
 });
 

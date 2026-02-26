@@ -32,7 +32,15 @@ const makeSourceNode = () => ({
 
 const mockGainConnect = vi.fn();
 const mockGainNode = { connect: mockGainConnect, gain: { value: 1.0 } };
-const mockCreateGain = vi.fn().mockReturnValue(mockGainNode);
+const mockMasterGainConnect = vi.fn();
+const mockMasterGainDisconnect = vi.fn();
+const mockMasterGainNode = {
+  connect: mockMasterGainConnect,
+  disconnect: mockMasterGainDisconnect,
+  gain: { value: 1.0 },
+};
+// First createGain() call per test → master gain; subsequent calls → normalization gain.
+const mockCreateGain = vi.fn();
 
 const mockAudioBuffer = {
   length: 44100,
@@ -118,6 +126,12 @@ describe("AudioEngine", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockMasterGainNode.gain.value = 1.0;
+    mockGainNode.gain.value = 1.0;
+    // mockReset() clears the once-queue so unconsumed entries from tests that skip play()
+    // (getAudioUrl, getBlobUrl, preload) don't accumulate and corrupt subsequent tests.
+    mockCreateGain.mockReset();
+    mockCreateGain.mockReturnValueOnce(mockMasterGainNode).mockReturnValue(mockGainNode);
     mockFsReadAudio.mockResolvedValue("dGVzdA==");
     mockDecodeAudioData.mockResolvedValue(mockAudioBuffer);
     resetStores();
@@ -230,6 +244,10 @@ describe("AudioEngine — volume normalization", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockMasterGainNode.gain.value = 1.0;
+    mockGainNode.gain.value = 1.0;
+    mockCreateGain.mockReset();
+    mockCreateGain.mockReturnValueOnce(mockMasterGainNode).mockReturnValue(mockGainNode);
     mockFsReadAudio.mockResolvedValue("dGVzdA==");
     mockDecodeAudioData.mockResolvedValue(mockAudioBuffer);
     resetStores();
@@ -246,12 +264,14 @@ describe("AudioEngine — volume normalization", () => {
       normalizeVolume: true,
     });
     await engine.play(file);
-    expect(mockCreateGain).toHaveBeenCalledOnce();
+    // 1st createGain → masterGain, 2nd createGain → normGain
+    expect(mockCreateGain).toHaveBeenCalledTimes(2);
   });
 
   test("play() does not create a GainNode when normalizeVolume is false", async () => {
     await engine.play(file);
-    expect(mockCreateGain).not.toHaveBeenCalled();
+    // Only masterGain is created; no normGain
+    expect(mockCreateGain).toHaveBeenCalledOnce();
   });
 
   test("source connects through GainNode to destination when normalizing", async () => {
@@ -260,9 +280,10 @@ describe("AudioEngine — volume normalization", () => {
       normalizeVolume: true,
     });
     await engine.play(file);
-    // source.connect called with gainNode, gainNode.connect called with destination
-    expect(mockConnect).toHaveBeenCalledWith(mockGainNode);
-    expect(mockGainConnect).toHaveBeenCalledWith(expect.any(Object));
+    // normGain (2nd createGain result) connects to masterGain
+    expect(mockGainConnect).toHaveBeenCalledWith(mockMasterGainNode);
+    // source does NOT connect directly to masterGain (it goes through normGain)
+    expect(mockConnect).not.toHaveBeenCalledWith(mockMasterGainNode);
   });
 
   test("source connects directly to destination when not normalizing", async () => {
@@ -277,6 +298,10 @@ describe("AudioEngine — loop and pause", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockMasterGainNode.gain.value = 1.0;
+    mockGainNode.gain.value = 1.0;
+    mockCreateGain.mockReset();
+    mockCreateGain.mockReturnValueOnce(mockMasterGainNode).mockReturnValue(mockGainNode);
     mockFsReadAudio.mockResolvedValue("dGVzdA==");
     mockDecodeAudioData.mockResolvedValue(mockAudioBuffer);
     resetStores();
@@ -350,6 +375,10 @@ describe("AudioEngine — seek", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockMasterGainNode.gain.value = 1.0;
+    mockGainNode.gain.value = 1.0;
+    mockCreateGain.mockReset();
+    mockCreateGain.mockReturnValueOnce(mockMasterGainNode).mockReturnValue(mockGainNode);
     mockFsReadAudio.mockResolvedValue("dGVzdA==");
     mockDecodeAudioData.mockResolvedValue(mockAudioBuffer);
     resetStores();
@@ -396,5 +425,42 @@ describe("AudioEngine — seek", () => {
     engine.seek(3.5);
     await new Promise((r) => setTimeout(r, 0));
     expect(engine.getPosition()).toBe(3.5);
+  });
+});
+
+describe("AudioEngine — master volume", () => {
+  let engine: AudioEngine;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockMasterGainNode.gain.value = 1.0;
+    mockGainNode.gain.value = 1.0;
+    mockCreateGain.mockReset();
+    mockCreateGain.mockReturnValueOnce(mockMasterGainNode).mockReturnValue(mockGainNode);
+    mockFsReadAudio.mockResolvedValue("dGVzdA==");
+    mockDecodeAudioData.mockResolvedValue(mockAudioBuffer);
+    resetStores();
+    engine = new AudioEngine();
+  });
+
+  afterEach(() => {
+    engine.dispose();
+  });
+
+  test("setVolume(0.5) sets the master gain to 0.5", async () => {
+    await engine.play(file);
+    engine.setVolume(0.5);
+    expect(mockMasterGainNode.gain.value).toBe(0.5);
+  });
+
+  test("setVolume(0) mutes the master gain", async () => {
+    await engine.play(file);
+    engine.setVolume(0);
+    expect(mockMasterGainNode.gain.value).toBe(0);
+  });
+
+  test("setVolume works before any play call", () => {
+    expect(() => engine.setVolume(0.7)).not.toThrow();
+    expect(mockMasterGainNode.gain.value).toBe(0.7);
   });
 });
