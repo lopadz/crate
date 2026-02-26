@@ -27,92 +27,90 @@ function findNextSelectable(fileList: AudioFile[], fromIndex: number, direction:
   return fromIndex;
 }
 
+function handleNavigate(e: KeyboardEvent, direction: 1 | -1): void {
+  e.preventDefault();
+  const { fileList, selectedIndex, setSelectedIndex } = useBrowserStore.getState();
+  const { autoplay } = useSettingsStore.getState();
+  const nextIdx = findNextSelectable(fileList, selectedIndex, direction);
+  if (nextIdx === selectedIndex) return;
+  setSelectedIndex(nextIdx);
+  if (autoplay) {
+    const nextFile = fileList[nextIdx];
+    if (nextFile) audioEngine.play(nextFile, getNeighbors(fileList, nextIdx));
+  }
+}
+
+function handleSpace(e: KeyboardEvent): void {
+  e.preventDefault();
+  const { fileList, selectedIndex } = useBrowserStore.getState();
+  const { isPlaying, currentFile } = usePlaybackStore.getState();
+  if (isPlaying) {
+    if (currentFile && isMidi(currentFile)) midiEngine.stop();
+    else audioEngine.stop();
+    return;
+  }
+  const file = fileList[selectedIndex] ?? currentFile;
+  if (!file) return;
+  if (isMidi(file)) midiEngine.play(file);
+  else audioEngine.play(file, getNeighbors(fileList, selectedIndex));
+}
+
+function handleEscape(): void {
+  const { currentFile } = usePlaybackStore.getState();
+  if (currentFile && isMidi(currentFile)) midiEngine.stop();
+  else audioEngine.stop();
+}
+
+function handleArrowRight(e: KeyboardEvent): void {
+  e.preventDefault();
+  const { fileList, selectedIndex } = useBrowserStore.getState();
+  const { currentFile } = usePlaybackStore.getState();
+  const file = fileList[selectedIndex] ?? currentFile;
+  if (!file) return;
+  audioEngine.seek(0);
+  audioEngine.play(file, getNeighbors(fileList, selectedIndex));
+}
+
+function handleColorTag(key: string): void {
+  const { fileList, selectedIndex } = useBrowserStore.getState();
+  if (selectedIndex < 0) return;
+  const tagFile = fileList[selectedIndex];
+  if (!tagFile?.compositeId) return;
+  const color: TagColor =
+    key === "g" ? "green" : key === "y" ? "yellow" : key === "r" ? "red" : null;
+  useBrowserStore.getState().setColorTag(tagFile.compositeId, color);
+  rpcClient?.send.dbSetColorTag({ compositeId: tagFile.compositeId, color });
+}
+
 export function useKeyboardNav(): void {
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
-      // Don't intercept when user is typing
       const target = e.target as HTMLElement;
       if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) return;
 
-      const { fileList, selectedIndex, setSelectedIndex } = useBrowserStore.getState();
-      const { isPlaying, currentFile } = usePlaybackStore.getState();
-      const { autoplay } = useSettingsStore.getState();
-
       switch (e.key) {
-        case "ArrowDown": {
-          e.preventDefault();
-          const nextIdx = findNextSelectable(fileList, selectedIndex, 1);
-          if (nextIdx !== selectedIndex) {
-            setSelectedIndex(nextIdx);
-            if (autoplay) {
-              const nextFile = fileList[nextIdx];
-              if (nextFile) audioEngine.play(nextFile, getNeighbors(fileList, nextIdx));
-            }
-          }
+        case "ArrowDown":
+          handleNavigate(e, 1);
           break;
-        }
-
         case "ArrowUp":
-        case "ArrowLeft": {
-          e.preventDefault();
-          const prevIdx = findNextSelectable(fileList, selectedIndex, -1);
-          if (prevIdx !== selectedIndex) {
-            setSelectedIndex(prevIdx);
-            if (autoplay) {
-              const prevFile = fileList[prevIdx];
-              if (prevFile) audioEngine.play(prevFile, getNeighbors(fileList, prevIdx));
-            }
-          }
+        case "ArrowLeft":
+          handleNavigate(e, -1);
           break;
-        }
-
-        case " ": {
-          e.preventDefault();
-          if (isPlaying) {
-            if (currentFile && isMidi(currentFile)) midiEngine.stop();
-            else audioEngine.stop();
-          } else {
-            const file = fileList[selectedIndex] ?? currentFile;
-            if (file) {
-              if (isMidi(file)) midiEngine.play(file);
-              else audioEngine.play(file, getNeighbors(fileList, selectedIndex));
-            }
-          }
+        case " ":
+          handleSpace(e);
           break;
-        }
-
-        case "Escape": {
-          if (currentFile && isMidi(currentFile)) midiEngine.stop();
-          else audioEngine.stop();
+        case "Escape":
+          handleEscape();
           break;
-        }
-
-        case "ArrowRight": {
-          e.preventDefault();
-          const file = fileList[selectedIndex] ?? currentFile;
-          if (file) {
-            audioEngine.seek(0);
-            audioEngine.play(file, getNeighbors(fileList, selectedIndex));
-          }
+        case "ArrowRight":
+          handleArrowRight(e);
           break;
-        }
-
         case "g":
         case "y":
         case "r":
-        case "x": {
-          if (selectedIndex < 0) break;
-          const tagFile = fileList[selectedIndex];
-          if (!tagFile?.compositeId) break;
-          const color: TagColor =
-            e.key === "g" ? "green" : e.key === "y" ? "yellow" : e.key === "r" ? "red" : null;
-          useBrowserStore.getState().setColorTag(tagFile.compositeId, color);
-          rpcClient?.send.dbSetColorTag({
-            compositeId: tagFile.compositeId,
-            color,
-          });
+        case "x":
+          handleColorTag(e.key);
           break;
-        }
       }
     };
 
