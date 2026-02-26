@@ -371,4 +371,13 @@ describe("AudioEngine — seek", () => {
     await new Promise((r) => setTimeout(r, 0));
     expect(mockStart).not.toHaveBeenCalled();
   });
+
+  test("play() for a different file always starts from position 0", async () => {
+    await engine.play(file);
+    engine.pause();
+    engine.seek(3.5); // scrub while paused — pauseOffset is now 3.5
+    vi.clearAllMocks();
+    await engine.play(next); // different file — must ignore the stale offset
+    expect(mockStart).toHaveBeenCalledWith(0, 0);
+  });
 });

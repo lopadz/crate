@@ -131,7 +131,8 @@ export class AudioEngine {
 
   async play(file: AudioFile, neighbors: AudioFile[] = []): Promise<void> {
     const id = ++this.playId;
-    const offset = this.pauseOffset;
+    const { currentFile } = usePlaybackStore.getState();
+    const offset = currentFile?.path === file.path ? this.pauseOffset : 0;
     this.stop();
 
     const ctx = this.getCtx();
