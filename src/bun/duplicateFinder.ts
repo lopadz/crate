@@ -24,31 +24,37 @@ function collectFiles(folderPaths: string[]): string[] {
   return files;
 }
 
+function groupByNameHash(files: string[], hashes: Map<string, string>): Map<string, string[]> {
+  const result = new Map<string, string[]>();
+  for (const f of files) {
+    const key = `${path.basename(f)}::${hashes.get(f) ?? ""}`;
+    const group = result.get(key) ?? [];
+    group.push(f);
+    result.set(key, group);
+  }
+  return result;
+}
+
+function groupByContentHash(files: string[], hashes: Map<string, string>): Map<string, string[]> {
+  const result = new Map<string, string[]>();
+  for (const f of files) {
+    const hash = hashes.get(f) ?? "";
+    const group = result.get(hash) ?? [];
+    group.push(f);
+    result.set(hash, group);
+  }
+  return result;
+}
+
 export async function findDuplicates(folderPaths: string[]): Promise<DuplicateGroup[]> {
   const files = collectFiles(folderPaths);
   if (files.length < 2) return [];
 
-  // Pre-compute hashes once
   const hashes = new Map<string, string>(); // path → sha256
   for (const f of files) hashes.set(f, sha256(f));
 
-  // Phase 1: group by (basename + sha256) → exact-name duplicates
-  const byNameHash = new Map<string, string[]>();
-  for (const f of files) {
-    const key = `${path.basename(f)}::${hashes.get(f)}`;
-    const group = byNameHash.get(key) ?? [];
-    group.push(f);
-    byNameHash.set(key, group);
-  }
-
-  // Phase 2: group by sha256 alone → content duplicates (different names)
-  const byContentHash = new Map<string, string[]>();
-  for (const f of files) {
-    const hash = hashes.get(f)!;
-    const group = byContentHash.get(hash) ?? [];
-    group.push(f);
-    byContentHash.set(hash, group);
-  }
+  const byNameHash = groupByNameHash(files, hashes);
+  const byContentHash = groupByContentHash(files, hashes);
 
   const groups: DuplicateGroup[] = [];
   const covered = new Set<string>(); // paths already in an exact-name group
@@ -61,7 +67,6 @@ export async function findDuplicates(folderPaths: string[]): Promise<DuplicateGr
 
   for (const [hash, filePaths] of byContentHash) {
     if (filePaths.length < 2) continue;
-    // Only add as content-group if NOT all covered by an exact-name group
     const uncovered = filePaths.filter((p) => !covered.has(p));
     if (uncovered.length < 2) continue;
     groups.push({ fingerprint: hash, files: filePaths, reason: "content" });
