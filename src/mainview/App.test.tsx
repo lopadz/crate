@@ -33,6 +33,7 @@ vi.mock("./services/audioEngine", () => ({
     seek: vi.fn(),
     preload: vi.fn(),
     getBlobUrl: vi.fn().mockReturnValue(undefined),
+    getPosition: vi.fn().mockReturnValue(0),
   },
 }));
 

@@ -171,6 +171,7 @@ export class AudioEngine {
     };
 
     usePlaybackStore.getState().setCurrentFile(file);
+    usePlaybackStore.getState().setDuration(buffer.duration);
     usePlaybackStore.getState().setIsPlaying(true);
 
     // Preload neighbors in the background (fire-and-forget)

@@ -214,6 +214,11 @@ describe("AudioEngine", () => {
     expect(mockStart).not.toHaveBeenCalled();
   });
 
+  test("play() sets duration in playbackStore to buffer.duration", async () => {
+    await engine.play(file);
+    expect(usePlaybackStore.getState().duration).toBe(mockAudioBuffer.duration);
+  });
+
   test("dispose() does not throw", async () => {
     await engine.play(file);
     expect(() => engine.dispose()).not.toThrow();

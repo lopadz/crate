@@ -1,16 +1,20 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { AudioFile } from "../../shared/types";
 import { useBrowserStore } from "../stores/browserStore";
 import { usePlaybackStore } from "../stores/playbackStore";
 
-const { mockPlay, mockStop, mockPause, mockSetLoop } = vi.hoisted(() => ({
-  mockPlay: vi.fn().mockResolvedValue(undefined),
-  mockStop: vi.fn(),
-  mockPause: vi.fn(),
-  mockSetLoop: vi.fn(),
-}));
+const { mockPlay, mockStop, mockPause, mockSetLoop, mockSeek, mockGetPosition } = vi.hoisted(
+  () => ({
+    mockPlay: vi.fn().mockResolvedValue(undefined),
+    mockStop: vi.fn(),
+    mockPause: vi.fn(),
+    mockSetLoop: vi.fn(),
+    mockSeek: vi.fn(),
+    mockGetPosition: vi.fn().mockReturnValue(0),
+  }),
+);
 
 vi.mock("../services/audioEngine", () => ({
   audioEngine: {
@@ -18,6 +22,8 @@ vi.mock("../services/audioEngine", () => ({
     stop: mockStop,
     pause: mockPause,
     setLoop: mockSetLoop,
+    seek: mockSeek,
+    getPosition: mockGetPosition,
   },
 }));
 
@@ -181,5 +187,91 @@ describe("PlaybackBar — current file", () => {
   test("shows nothing for file name when no file is loaded", () => {
     render(<PlaybackBar />);
     expect(screen.queryByTestId("current-file-name")).toBeNull();
+  });
+});
+
+describe("PlaybackBar — timeline scrubber", () => {
+  test("renders the timeline scrubber", () => {
+    render(<PlaybackBar />);
+    expect(screen.getByTestId("timeline-scrubber")).toBeDefined();
+  });
+
+  test("scrubber max equals store duration", () => {
+    usePlaybackStore.setState({ ...usePlaybackStore.getState(), duration: 120 });
+    render(<PlaybackBar />);
+    const scrubber = screen.getByTestId("timeline-scrubber") as HTMLInputElement;
+    expect(Number(scrubber.max)).toBe(120);
+  });
+
+  test("scrubber starts at 0 when no playback", () => {
+    usePlaybackStore.setState({ ...usePlaybackStore.getState(), duration: 60 });
+    render(<PlaybackBar />);
+    const scrubber = screen.getByTestId("timeline-scrubber") as HTMLInputElement;
+    expect(Number(scrubber.value)).toBe(0);
+  });
+
+  test("changing scrubber calls audioEngine.seek with the new position", () => {
+    usePlaybackStore.setState({ ...usePlaybackStore.getState(), duration: 60 });
+    render(<PlaybackBar />);
+    const scrubber = screen.getByTestId("timeline-scrubber");
+    fireEvent.change(scrubber, { target: { value: "30" } });
+    expect(mockSeek).toHaveBeenCalledWith(30);
+  });
+});
+
+describe("PlaybackBar — timestamps", () => {
+  test("shows formatted current position (0:00:00 when idle)", () => {
+    render(<PlaybackBar />);
+    expect(screen.getByTestId("timestamp-current").textContent).toBe("0:00:00");
+  });
+
+  test("shows formatted duration", () => {
+    usePlaybackStore.setState({ ...usePlaybackStore.getState(), duration: 3661 });
+    render(<PlaybackBar />);
+    expect(screen.getByTestId("timestamp-duration").textContent).toBe("1:01:01");
+  });
+});
+
+describe("PlaybackBar — cursor sync (RAF)", () => {
+  let rafCallback: FrameRequestCallback | null = null;
+  const mockRaf = vi.fn().mockImplementation((cb: FrameRequestCallback) => {
+    rafCallback = cb;
+    return 42;
+  });
+  const mockCaf = vi.fn();
+
+  beforeEach(() => {
+    vi.stubGlobal("requestAnimationFrame", mockRaf);
+    vi.stubGlobal("cancelAnimationFrame", mockCaf);
+    rafCallback = null;
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  test("starts RAF loop when isPlaying becomes true", () => {
+    render(<PlaybackBar />);
+    act(() => usePlaybackStore.setState({ ...usePlaybackStore.getState(), isPlaying: true }));
+    expect(mockRaf).toHaveBeenCalled();
+  });
+
+  test("scrubber value reflects audioEngine.getPosition on each RAF tick", () => {
+    mockGetPosition.mockReturnValue(5);
+    usePlaybackStore.setState({ ...usePlaybackStore.getState(), duration: 10 });
+    render(<PlaybackBar />);
+    act(() => usePlaybackStore.setState({ ...usePlaybackStore.getState(), isPlaying: true }));
+    act(() => {
+      rafCallback?.(16);
+    });
+    const scrubber = screen.getByTestId("timeline-scrubber") as HTMLInputElement;
+    expect(Number(scrubber.value)).toBe(5);
+  });
+
+  test("cancels RAF loop when playback stops", () => {
+    render(<PlaybackBar />);
+    act(() => usePlaybackStore.setState({ ...usePlaybackStore.getState(), isPlaying: true }));
+    act(() => usePlaybackStore.setState({ ...usePlaybackStore.getState(), isPlaying: false }));
+    expect(mockCaf).toHaveBeenCalledWith(42);
   });
 });
