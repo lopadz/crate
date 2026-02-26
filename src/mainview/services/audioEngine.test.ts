@@ -339,3 +339,36 @@ describe("AudioEngine — loop and pause", () => {
     expect(() => engine.pause()).not.toThrow();
   });
 });
+
+describe("AudioEngine — seek", () => {
+  let engine: AudioEngine;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockFsReadAudio.mockResolvedValue("dGVzdA==");
+    mockDecodeAudioData.mockResolvedValue(mockAudioBuffer);
+    resetStores();
+    engine = new AudioEngine();
+  });
+
+  afterEach(() => {
+    engine.dispose();
+  });
+
+  test("seek() while playing starts from the seeked position", async () => {
+    await engine.play(file);
+    engine.seek(3.5);
+    await new Promise((r) => setTimeout(r, 0));
+    // Second source.start() must use offset 3.5, not restart from 0
+    expect(mockStart).toHaveBeenNthCalledWith(2, 0, 3.5);
+  });
+
+  test("seek() while paused updates offset without starting a new source", async () => {
+    await engine.play(file);
+    engine.pause();
+    vi.clearAllMocks();
+    engine.seek(2.0);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(mockStart).not.toHaveBeenCalled();
+  });
+});

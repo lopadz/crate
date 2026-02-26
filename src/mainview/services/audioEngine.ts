@@ -131,6 +131,7 @@ export class AudioEngine {
 
   async play(file: AudioFile, neighbors: AudioFile[] = []): Promise<void> {
     const id = ++this.playId;
+    const offset = this.pauseOffset;
     this.stop();
 
     const ctx = this.getCtx();
@@ -159,8 +160,8 @@ export class AudioEngine {
 
     source.loop = usePlaybackStore.getState().loop;
     if (ctx.state === "suspended") await ctx.resume();
-    source.start(0, this.pauseOffset);
-    this.startedAt = ctx.currentTime - this.pauseOffset;
+    source.start(0, offset);
+    this.startedAt = ctx.currentTime - offset;
     this.pauseOffset = 0;
     this.source = source;
 
