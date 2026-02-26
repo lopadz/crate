@@ -32,13 +32,14 @@ export function Waveform() {
     };
   }, []);
 
-  // Load new file whenever currentFile changes
   // Load new file whenever currentFile changes.
   // audioEngine always decodes before setting currentFile, so the blob URL is ready.
+  // After load resolves, reset the cursor to the start so it doesn't carry over
+  // the fractional position from the previous file.
   useEffect(() => {
     if (!currentFile || !wsRef.current) return;
     const blobUrl = audioEngine.getBlobUrl(currentFile.path);
-    if (blobUrl) wsRef.current.load(blobUrl);
+    if (blobUrl) wsRef.current.load(blobUrl).then(() => wsRef.current?.seekTo(0));
   }, [currentFile]);
 
   return <div data-testid="waveform" ref={containerRef} className="w-full h-24 bg-[#111]" />;

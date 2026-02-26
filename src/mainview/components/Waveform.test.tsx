@@ -4,16 +4,25 @@ import type { AudioFile } from "../../shared/types";
 
 // ── Hoisted mock handles (must precede vi.mock hoisting) ─────────────────────
 
-const { mockLoad, mockDestroy, mockGetDuration, mockOn, mockCreate, mockSeek, mockGetBlobUrl } =
-  vi.hoisted(() => ({
-    mockLoad: vi.fn().mockResolvedValue(undefined),
-    mockDestroy: vi.fn(),
-    mockGetDuration: vi.fn().mockReturnValue(10),
-    mockOn: vi.fn(),
-    mockCreate: vi.fn(),
-    mockSeek: vi.fn(),
-    mockGetBlobUrl: vi.fn().mockReturnValue("blob:mock://test"),
-  }));
+const {
+  mockLoad,
+  mockDestroy,
+  mockGetDuration,
+  mockOn,
+  mockCreate,
+  mockSeek,
+  mockSeekTo,
+  mockGetBlobUrl,
+} = vi.hoisted(() => ({
+  mockLoad: vi.fn().mockResolvedValue(undefined),
+  mockDestroy: vi.fn(),
+  mockGetDuration: vi.fn().mockReturnValue(10),
+  mockOn: vi.fn(),
+  mockCreate: vi.fn(),
+  mockSeek: vi.fn(),
+  mockSeekTo: vi.fn(),
+  mockGetBlobUrl: vi.fn().mockReturnValue("blob:mock://test"),
+}));
 
 // ── WaveSurfer mock ───────────────────────────────────────────────────────────
 
@@ -40,6 +49,7 @@ const makeWsInstance = () => {
     load: mockLoad,
     destroy: mockDestroy,
     getDuration: mockGetDuration,
+    seekTo: mockSeekTo,
   };
   mockCreate.mockReturnValue(inst);
   return inst;
@@ -126,6 +136,15 @@ describe("Waveform", () => {
     const { unmount } = render(<Waveform />);
     unmount();
     expect(mockDestroy).toHaveBeenCalledOnce();
+  });
+
+  test("resets cursor to start when a new file is loaded", async () => {
+    render(<Waveform />);
+    act(() => usePlaybackStore.setState({ ...usePlaybackStore.getState(), currentFile: file }));
+    await act(async () => {});
+    act(() => usePlaybackStore.setState({ ...usePlaybackStore.getState(), currentFile: file2 }));
+    await act(async () => {});
+    expect(mockSeekTo).toHaveBeenLastCalledWith(0);
   });
 
   test("seeking event calls audioEngine.seek with current time", async () => {
