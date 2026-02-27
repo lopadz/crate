@@ -12,4 +12,8 @@ export const filesApi = {
 
   /** Stop watching a directory. Fire-and-forget. */
   stopWatch: (path: string) => rpcClient?.send.fsStopWatch({ path }),
+
+  /** Enqueue a file for BPM/key/LUFS analysis. Fire-and-forget. */
+  queueFile: (compositeId: string, path: string) =>
+    rpcClient?.send.analysisQueueFile({ compositeId, path }),
 };

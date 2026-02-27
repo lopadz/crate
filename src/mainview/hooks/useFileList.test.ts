@@ -5,7 +5,7 @@ import type { AudioFile } from "../../shared/types";
 vi.mock("../rpc", () => ({
   rpcClient: {
     request: { fsReaddir: vi.fn() },
-    send: { fsStartWatch: vi.fn(), fsStopWatch: vi.fn() },
+    send: { fsStartWatch: vi.fn(), fsStopWatch: vi.fn(), analysisQueueFile: vi.fn() },
   },
 }));
 
@@ -97,12 +97,7 @@ describe("useFileList", () => {
     });
   });
 
-  test("unanalyzed file passes through queued then done", async () => {
-    const history: string[] = [];
-    const unsub = useAnalysisStore.subscribe((s) => {
-      const status = s.fileStatuses["cid-a"];
-      if (status) history.push(status);
-    });
+  test("unanalyzed file is marked queued and enqueued for analysis", async () => {
     const mockFiles: AudioFile[] = [
       {
         path: "/S/a.wav",
@@ -113,15 +108,33 @@ describe("useFileList", () => {
       },
     ];
     (rpcClient?.request.fsReaddir as ReturnType<typeof vi.fn>).mockResolvedValue(mockFiles);
-    useBrowserStore.setState({
-      ...useBrowserStore.getState(),
-      activeFolder: "/S",
-    });
+    useBrowserStore.setState({ ...useBrowserStore.getState(), activeFolder: "/S" });
     renderHook(() => useFileList());
-    await waitFor(() => expect(useAnalysisStore.getState().fileStatuses["cid-a"]).toBe("done"));
-    unsub();
-    expect(history).toContain("queued");
-    expect(history[history.length - 1]).toBe("done");
+    await waitFor(() =>
+      expect(rpcClient?.send.analysisQueueFile).toHaveBeenCalledWith({
+        compositeId: "cid-a",
+        path: "/S/a.wav",
+      }),
+    );
+    expect(useAnalysisStore.getState().fileStatuses["cid-a"]).toBe("queued");
+  });
+
+  test("does not call analysisQueueFile for already-analyzed files", async () => {
+    const mockFiles: AudioFile[] = [
+      {
+        path: "/S/b.wav",
+        name: "b.wav",
+        extension: ".wav",
+        size: 100,
+        compositeId: "cid-b",
+        lufsIntegrated: -14,
+      },
+    ];
+    (rpcClient?.request.fsReaddir as ReturnType<typeof vi.fn>).mockResolvedValue(mockFiles);
+    useBrowserStore.setState({ ...useBrowserStore.getState(), activeFolder: "/S" });
+    renderHook(() => useFileList());
+    await waitFor(() => expect(useBrowserStore.getState().fileList).toEqual(mockFiles));
+    expect(rpcClient?.send.analysisQueueFile).not.toHaveBeenCalled();
   });
 
   test("already-analyzed file goes directly to done without queued", async () => {
@@ -141,14 +154,12 @@ describe("useFileList", () => {
       },
     ];
     (rpcClient?.request.fsReaddir as ReturnType<typeof vi.fn>).mockResolvedValue(mockFiles);
-    useBrowserStore.setState({
-      ...useBrowserStore.getState(),
-      activeFolder: "/S",
-    });
+    useBrowserStore.setState({ ...useBrowserStore.getState(), activeFolder: "/S" });
     renderHook(() => useFileList());
     await waitFor(() => expect(useAnalysisStore.getState().fileStatuses["cid-b"]).toBe("done"));
     unsub();
     expect(history).not.toContain("queued");
+    expect(rpcClient?.send.analysisQueueFile).not.toHaveBeenCalled();
   });
 
   test("skips files without compositeId when setting analysis status", async () => {
