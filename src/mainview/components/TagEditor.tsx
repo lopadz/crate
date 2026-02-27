@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Tag } from "../../shared/types";
-import { rpcClient } from "../rpc";
+import { tagsApi } from "../api/tags";
 import { TagSearch } from "./TagSearch";
 
 interface TagEditorProps {
@@ -13,19 +13,19 @@ export function TagEditor({ compositeId, initialTags, allTags }: TagEditorProps)
   const [tags, setTags] = useState<Tag[]>(initialTags);
 
   function handleRemove(tagId: number) {
-    rpcClient?.send.dbRemoveFileTag({ compositeId, tagId });
+    tagsApi.removeFromFile(compositeId, tagId);
     setTags((prev) => prev.filter((t) => t.id !== tagId));
   }
 
   function handleSelect(tag: Tag) {
-    rpcClient?.send.dbAddFileTag({ compositeId, tagId: tag.id });
+    tagsApi.addToFile(compositeId, tag.id);
     setTags((prev) => [...prev, tag]);
   }
 
   async function handleCreate(name: string) {
-    const newTag = await rpcClient?.request.dbCreateTag({ name, color: null });
+    const newTag = await tagsApi.create(name);
     if (newTag) {
-      rpcClient?.send.dbAddFileTag({ compositeId, tagId: newTag.id });
+      tagsApi.addToFile(compositeId, newTag.id);
       setTags((prev) => [...prev, newTag]);
     }
   }

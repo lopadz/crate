@@ -1,7 +1,7 @@
 import type { Tag } from "../../shared/types";
+import { tagsApi } from "../api/tags";
 import { useRpcFetch } from "../hooks/useRpcFetch";
 import { useSelectedFile } from "../hooks/useSelectedFile";
-import { rpcClient } from "../rpc";
 import { NoteEditor } from "./NoteEditor";
 import { TagEditor } from "./TagEditor";
 import { Waveform } from "./Waveform";
@@ -10,14 +10,10 @@ export function DetailPanel() {
   const selectedFile = useSelectedFile();
   const compositeId = selectedFile?.compositeId;
 
-  const allTags = useRpcFetch(
-    () => rpcClient?.request.dbGetAllTags({}),
-    [],
-    [] as Tag[],
-  );
+  const allTags = useRpcFetch(() => tagsApi.getAll(), [], [] as Tag[]);
 
   const fileTags = useRpcFetch(
-    compositeId ? () => rpcClient?.request.dbGetFileTags({ compositeId }) : null,
+    compositeId ? () => tagsApi.getForFile(compositeId) : null,
     [compositeId],
     [] as Tag[],
   );
