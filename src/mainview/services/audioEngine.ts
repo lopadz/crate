@@ -37,6 +37,10 @@ export class AudioEngine {
   private playId = 0;
   private pauseOffset = 0;
   private startedAt = 0;
+  // Tracks whether the user intends audio to be playing. Updated synchronously
+  // before any awaits so rapid seek() calls see the correct state even while
+  // a previous play() is still mid-decode (store's isPlaying would be false).
+  private _intentPlaying = false;
 
   // HTTP audio server config — set once at startup via setServerConfig().
   // Until set, _doDecode falls back to the legacy IPC base64 path.
@@ -150,6 +154,9 @@ export class AudioEngine {
     const { currentFile } = usePlaybackStore.getState();
     const offset = currentFile?.path === file.path ? this.pauseOffset : 0;
     this.stop();
+    // Set intent AFTER stop() so stop()'s own clear doesn't win.
+    // Must be synchronous (before any await) so rapid seek() calls see it.
+    this._intentPlaying = true;
 
     const ctx = this.getCtx();
     const buffer = await this.decodeFile(file);
@@ -198,6 +205,7 @@ export class AudioEngine {
   }
 
   stop(): void {
+    this._intentPlaying = false;
     if (this.source) {
       try {
         this.source.stop();
@@ -212,6 +220,7 @@ export class AudioEngine {
   }
 
   pause(): void {
+    this._intentPlaying = false;
     if (!this.source) return;
     const ctx = this.getCtx();
     const elapsed = ctx.currentTime - this.startedAt;
@@ -239,11 +248,15 @@ export class AudioEngine {
   }
 
   seek(position: number): void {
-    const { isPlaying, currentFile } = usePlaybackStore.getState();
+    // Read _intentPlaying before stop() clears it — the store's isPlaying is
+    // unreliable here because a previous seek() may have already set it to false
+    // via stop() while a new play() is still mid-decode.
+    const wasPlaying = this._intentPlaying;
+    const { currentFile } = usePlaybackStore.getState();
     this.stop();
     this.pauseOffset = position;
-    if (isPlaying && currentFile) {
-      this.play(currentFile);
+    if (wasPlaying && currentFile) {
+      void this.play(currentFile);
     }
   }
 
