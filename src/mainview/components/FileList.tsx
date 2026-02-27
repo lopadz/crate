@@ -5,7 +5,6 @@ import {
   Virtualizer,
 } from "@tanstack/virtual-core";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { flushSync } from "react-dom";
 import { useBrowserStore } from "../stores/browserStore";
 import { FileRow } from "./FileRow";
 import { SearchBar } from "./SearchBar";
@@ -54,7 +53,7 @@ export function FileList() {
       scrollToFn: elementScroll,
       observeElementRect,
       observeElementOffset,
-      onChange: () => flushSync(() => rerender((n) => n + 1)),
+      onChange: () => rerender((n) => n + 1),
     });
   }
 
@@ -65,7 +64,7 @@ export function FileList() {
     scrollToFn: elementScroll,
     observeElementRect,
     observeElementOffset,
-    onChange: () => flushSync(() => rerender((n) => n + 1)),
+    onChange: () => rerender((n) => n + 1),
   });
 
   useEffect(() => virtualizerRef.current?._didMount(), []);
