@@ -1,5 +1,5 @@
+import { notesApi } from "../api/notes";
 import { useRpcState } from "../hooks/useRpcState";
-import { rpcClient } from "../rpc";
 
 interface NoteEditorProps {
   compositeId: string;
@@ -7,13 +7,13 @@ interface NoteEditorProps {
 
 export function NoteEditor({ compositeId }: NoteEditorProps) {
   const [content, setContent] = useRpcState(
-    () => rpcClient?.request.dbGetNote({ compositeId }).then((note) => note ?? ""),
+    () => notesApi.getNote(compositeId),
     [compositeId],
     "",
   );
 
   const handleBlur = () => {
-    rpcClient?.send.dbSetNote({ compositeId, content });
+    notesApi.setNote(compositeId, content);
   };
 
   return (
