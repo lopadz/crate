@@ -50,7 +50,7 @@ interface QueueItem {
 const DEFAULT_MAX_CONCURRENT = 2;
 
 function defaultWorkerFactory(): WorkerLike {
-  return new Worker(new URL("./analysisWorker.ts", import.meta.url)) as unknown as WorkerLike;
+  return new Worker(new URL("./analysisWorker.js", import.meta.url)) as unknown as WorkerLike;
 }
 
 export class AnalysisQueue extends EventEmitter {
