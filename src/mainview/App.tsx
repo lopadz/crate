@@ -3,12 +3,14 @@ import { DetailPanel } from "./components/DetailPanel";
 import { FileList } from "./components/FileList";
 import { PlaybackBar } from "./components/PlaybackBar";
 import { Sidebar } from "./components/Sidebar";
+import { useAnalysis } from "./hooks/useAnalysis";
 import { useDragCopyPrewarm } from "./hooks/useDragCopyPrewarm";
 import { useFileList } from "./hooks/useFileList";
 import { useFilePreload } from "./hooks/useFilePreload";
 import { useKeyboardNav } from "./hooks/useKeyboardNav";
 
 function App() {
+  useAnalysis();
   useFileList();
   useFilePreload();
   useDragCopyPrewarm();
