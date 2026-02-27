@@ -1,8 +1,8 @@
 import { memo, useState } from "react";
 import type { AudioFile, TagColor } from "../../shared/types";
+import { useFileAnalysisStatus } from "../hooks/useFileAnalysisStatus";
 import { useDragDrop } from "../hooks/useDragDrop";
 import { rpcClient } from "../rpc";
-import { useAnalysisStore } from "../stores/analysisStore";
 import { useBrowserStore } from "../stores/browserStore";
 import { formatDuration, formatSize } from "../utils/format";
 import { TagBadge } from "./TagBadge";
@@ -56,10 +56,7 @@ export const FileRow = memo(
     const [showTagPicker, setShowTagPicker] = useState(false);
     const setColorTag = useBrowserStore((s) => s.setColorTag);
     const setSelectedIndex = useBrowserStore((s) => s.setSelectedIndex);
-    const analysisStatus = useAnalysisStore((s) =>
-      file.compositeId ? s.fileStatuses[file.compositeId] : undefined,
-    );
-    const isScanning = analysisStatus === "queued";
+    const isScanning = useFileAnalysisStatus(file.compositeId) === "queued";
     const { onDragStart } = useDragDrop(file);
 
     function handleContextMenu(e: React.MouseEvent) {
