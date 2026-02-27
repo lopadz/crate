@@ -1,15 +1,13 @@
 import { useEffect, useState } from "react";
 import type { Tag } from "../../shared/types";
+import { useSelectedFile } from "../hooks/useSelectedFile";
 import { rpcClient } from "../rpc";
-import { useBrowserStore } from "../stores/browserStore";
 import { NoteEditor } from "./NoteEditor";
 import { TagEditor } from "./TagEditor";
 import { Waveform } from "./Waveform";
 
 export function DetailPanel() {
-  const fileList = useBrowserStore((s) => s.fileList);
-  const selectedIndex = useBrowserStore((s) => s.selectedIndex);
-  const selectedFile = selectedIndex >= 0 ? fileList[selectedIndex] : undefined;
+  const selectedFile = useSelectedFile();
 
   const [fileTags, setFileTags] = useState<Tag[]>([]);
   const [allTags, setAllTags] = useState<Tag[]>([]);
