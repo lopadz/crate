@@ -1,8 +1,8 @@
 import { memo, useState } from "react";
 import type { AudioFile, TagColor } from "../../shared/types";
+import { fileMetadataApi } from "../api/fileMetadata";
 import { useFileAnalysisStatus } from "../hooks/useFileAnalysisStatus";
 import { useDragDrop } from "../hooks/useDragDrop";
-import { rpcClient } from "../rpc";
 import { useBrowserStore } from "../stores/browserStore";
 import { formatDuration, formatSize } from "../utils/format";
 import { TagBadge } from "./TagBadge";
@@ -14,7 +14,7 @@ function StarRating({ compositeId, rating }: { compositeId: string; rating: numb
     e.stopPropagation();
     const newValue = rating === value ? 0 : value;
     setRating(compositeId, newValue);
-    rpcClient?.send.dbSetRating({ compositeId, value: newValue });
+    fileMetadataApi.setRating(compositeId, newValue);
   };
 
   return (
@@ -67,7 +67,7 @@ export const FileRow = memo(
     function handleSelectTag(color: TagColor) {
       if (file.compositeId) {
         setColorTag(file.compositeId, color);
-        rpcClient?.send.dbSetColorTag({ compositeId: file.compositeId, color });
+        fileMetadataApi.setColorTag(file.compositeId, color);
       }
       setShowTagPicker(false);
     }

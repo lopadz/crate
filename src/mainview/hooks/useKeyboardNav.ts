@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import type { AudioFile, TagColor } from "../../shared/types";
-import { rpcClient } from "../rpc";
+import { fileMetadataApi } from "../api/fileMetadata";
 import { audioEngine } from "../services/audioEngine";
 import { midiEngine } from "../services/midiEngine";
 import { useAnalysisStore } from "../stores/analysisStore";
@@ -79,7 +79,7 @@ function handleColorTag(key: string): void {
   const color: TagColor =
     key === "g" ? "green" : key === "y" ? "yellow" : key === "r" ? "red" : null;
   useBrowserStore.getState().setColorTag(tagFile.compositeId, color);
-  rpcClient?.send.dbSetColorTag({ compositeId: tagFile.compositeId, color });
+  fileMetadataApi.setColorTag(tagFile.compositeId, color);
 }
 
 export function useKeyboardNav(): void {
