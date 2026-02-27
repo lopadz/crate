@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { Collection } from "../../shared/types";
-import { rpcClient } from "../rpc";
+import { collectionsApi } from "../api/collections";
 import { useBrowserStore } from "./browserStore";
 
 interface CollectionState {
@@ -17,33 +17,31 @@ export const useCollectionStore = create<CollectionState>((set) => ({
   activeCollectionId: null,
 
   async loadCollections() {
-    const collections = await rpcClient?.request.collectionGetAll({});
+    const collections = await collectionsApi.getAll();
     if (collections) set({ collections });
   },
 
   async selectCollection(id) {
     set({ activeCollectionId: id });
     useBrowserStore.getState().setActiveFolder(null);
-    const files = await rpcClient?.request.collectionGetFiles({
-      collectionId: id,
-    });
+    const files = await collectionsApi.getFiles(id);
     if (files) useBrowserStore.getState().setFileList(files);
   },
 
   async createCollection(name, color, queryJson) {
-    await rpcClient?.request.collectionCreate({ name, color, queryJson });
-    const collections = await rpcClient?.request.collectionGetAll({});
+    await collectionsApi.create(name, color, queryJson);
+    const collections = await collectionsApi.getAll();
     if (collections) set({ collections });
   },
 
   async deleteCollection(id) {
-    rpcClient?.send.collectionDelete({ collectionId: id });
+    collectionsApi.delete(id);
     const { activeCollectionId } = useCollectionStore.getState();
     if (activeCollectionId === id) {
       set({ activeCollectionId: null });
       useBrowserStore.getState().setFileList([]);
     }
-    const collections = await rpcClient?.request.collectionGetAll({});
+    const collections = await collectionsApi.getAll();
     if (collections) set({ collections });
   },
 }));
