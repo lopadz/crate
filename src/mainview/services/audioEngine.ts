@@ -1,5 +1,5 @@
 import type { AudioFile } from "../../shared/types";
-import { rpcClient } from "../rpc";
+import { audioApi } from "../api/audio";
 import { usePlaybackStore } from "../stores/playbackStore";
 import { useSettingsStore } from "../stores/settingsStore";
 
@@ -110,7 +110,7 @@ export class AudioEngine {
     } else {
       // Legacy fallback: used only in the brief window before setServerConfig()
       // is called (or in test environments without the Bun HTTP server).
-      const base64 = await rpcClient?.request.fsReadAudio({ path: file.path });
+      const base64 = await audioApi.readBase64(file.path);
       if (!base64) throw new Error(`Failed to read audio: ${file.path}`);
       const binaryStr = atob(base64);
       const len = binaryStr.length;
