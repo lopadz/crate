@@ -1,8 +1,8 @@
 import { memo, useState } from "react";
 import type { AudioFile, TagColor } from "../../shared/types";
 import { fileMetadataApi } from "../api/fileMetadata";
-import { useFileAnalysisStatus } from "../hooks/useFileAnalysisStatus";
 import { useDragDrop } from "../hooks/useDragDrop";
+import { useFileAnalysisStatus } from "../hooks/useFileAnalysisStatus";
 import { useBrowserStore } from "../stores/browserStore";
 import { formatDuration, formatSize } from "../utils/format";
 import { TagBadge } from "./TagBadge";

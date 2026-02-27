@@ -1,4 +1,11 @@
-import { type DependencyList, type Dispatch, type SetStateAction, useEffect, useRef, useState } from "react";
+import {
+  type DependencyList,
+  type Dispatch,
+  type SetStateAction,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 /**
  * Server-Seeded Local State hook.

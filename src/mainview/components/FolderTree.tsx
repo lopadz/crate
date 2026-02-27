@@ -1,5 +1,5 @@
+import { foldersApi } from "../api/folders";
 import { useRpcState } from "../hooks/useRpcState";
-import { rpcClient } from "../rpc";
 import { useBrowserStore } from "../stores/browserStore";
 import { basename } from "../utils/path";
 
@@ -11,9 +11,9 @@ interface FolderNode {
 export function FolderTree() {
   const [pinnedFolders, setPinnedFolders] = useRpcState(
     () =>
-      rpcClient?.request
-        .dbGetPinnedFolders({})
-        .then((paths) => paths.map((path) => ({ path, children: null } as FolderNode))),
+      foldersApi
+        .getPinned()
+        ?.then((paths) => paths.map((path) => ({ path, children: null }) as FolderNode)),
     [],
     [] as FolderNode[],
   );
@@ -21,7 +21,7 @@ export function FolderTree() {
   const setActiveFolder = useBrowserStore((s) => s.setActiveFolder);
 
   function handleExpand(path: string) {
-    rpcClient?.request.fsListDirs({ path }).then((children) => {
+    foldersApi.listDirs(path)?.then((children) => {
       setPinnedFolders((prev) =>
         prev.map((node) => (node.path === path ? { ...node, children } : node)),
       );
@@ -31,21 +31,21 @@ export function FolderTree() {
   async function handleAddFolder() {
     let paths: string[] | undefined;
     try {
-      paths = await rpcClient?.request.fsOpenFolderDialog({});
+      paths = await foldersApi.openDialog();
     } catch (err) {
       console.error("[FolderTree] fsOpenFolderDialog failed:", err);
       return;
     }
     if (!paths?.length) return;
     for (const path of paths) {
-      rpcClient?.send.dbPinFolder({ path });
+      foldersApi.pin(path);
       setPinnedFolders((prev) => [...prev, { path, children: null }]);
     }
     setActiveFolder(paths[0]);
   }
 
   function handleUnpin(path: string) {
-    rpcClient?.send.dbUnpinFolder({ path });
+    foldersApi.unpin(path);
     setPinnedFolders((prev) => prev.filter((n) => n.path !== path));
     if (activeFolder === path) setActiveFolder(null);
   }

@@ -76,8 +76,7 @@ describe("useRpcState — deps change", () => {
 
 describe("useRpcState — null fetcher reset", () => {
   test("resets to initial when fetcher becomes null, overwriting local state", async () => {
-    let fetcher: (() => Promise<string[]> | undefined) | null = () =>
-      Promise.resolve(["loaded"]);
+    let fetcher: (() => Promise<string[]> | undefined) | null = () => Promise.resolve(["loaded"]);
     const { result, rerender } = renderHook(() => useRpcState(fetcher, [fetcher], []));
     await act(async () => {});
     expect(result.current[0]).toEqual(["loaded"]);

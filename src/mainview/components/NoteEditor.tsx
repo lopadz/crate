@@ -6,11 +6,7 @@ interface NoteEditorProps {
 }
 
 export function NoteEditor({ compositeId }: NoteEditorProps) {
-  const [content, setContent] = useRpcState(
-    () => notesApi.getNote(compositeId),
-    [compositeId],
-    "",
-  );
+  const [content, setContent] = useRpcState(() => notesApi.getNote(compositeId), [compositeId], "");
 
   const handleBlur = () => {
     notesApi.setNote(compositeId, content);
