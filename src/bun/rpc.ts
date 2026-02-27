@@ -44,8 +44,21 @@ export function createRpc(
     queries.setAnalysisResult(result.compositeId, result);
     onAnalysisResult(result);
   });
-  // Swallow worker errors — individual file failures should not crash the app
-  analysisQueue.on("error", (_err: AnalysisError) => {});
+  // On worker error, mark the file as done with null values so the scanning
+  // indicator clears. Write to DB so the file isn't re-queued next session.
+  analysisQueue.on("error", (err: AnalysisError) => {
+    const stub: AnalysisResult = {
+      compositeId: err.compositeId,
+      bpm: null,
+      key: null,
+      keyCamelot: null,
+      lufsIntegrated: -Infinity,
+      lufsPeak: 0,
+      dynamicRange: 0,
+    };
+    queries.setAnalysisResult(err.compositeId, stub);
+    onAnalysisResult(stub);
+  });
 
   return BrowserView.defineRPC<CrateRPC>({
     maxRequestTime: Infinity,
