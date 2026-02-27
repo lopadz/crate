@@ -1,4 +1,5 @@
 import { PauseIcon, PlayIcon, RepeatIcon, StopIcon } from "@phosphor-icons/react";
+import { useRef, useState } from "react";
 import { useAudioPosition } from "../hooks/useAudioPosition";
 import { audioEngine } from "../services/audioEngine";
 import { useBrowserStore } from "../stores/browserStore";
@@ -15,6 +16,11 @@ export function PlaybackBar() {
   const { currentFile, isPlaying, loop, volume, duration, toggleLoop, setVolume } =
     usePlaybackStore();
   const position = useAudioPosition();
+  // scrubValue is non-null while the user is dragging the range input.
+  // During a drag we show the drag position without seeking so the audio
+  // engine doesn't restart on every pixel of movement.
+  const scrubValueRef = useRef<number | null>(null);
+  const [scrubValue, setScrubValue] = useState<number | null>(null);
 
   const handlePlayPause = () => {
     if (isPlaying) {
@@ -26,8 +32,28 @@ export function PlaybackBar() {
     }
   };
 
-  const handleScrub = (e: React.ChangeEvent<HTMLInputElement>) => {
-    audioEngine.seek(Number(e.target.value));
+  const handleScrubPointerDown = () => {
+    scrubValueRef.current = position;
+    setScrubValue(position);
+  };
+
+  const handleScrubChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = Number(e.target.value);
+    if (scrubValueRef.current !== null) {
+      scrubValueRef.current = val;
+      setScrubValue(val);
+    } else {
+      // Keyboard navigation (no pointer): seek immediately
+      audioEngine.seek(val);
+    }
+  };
+
+  const handleScrubRelease = (e: React.PointerEvent<HTMLInputElement>) => {
+    if (scrubValueRef.current !== null) {
+      audioEngine.seek(Number((e.target as HTMLInputElement).value));
+      scrubValueRef.current = null;
+      setScrubValue(null);
+    }
   };
 
   return (
@@ -77,8 +103,10 @@ export function PlaybackBar() {
           min={0}
           max={duration}
           step={0.1}
-          value={position}
-          onChange={handleScrub}
+          value={scrubValue ?? position}
+          onPointerDown={handleScrubPointerDown}
+          onChange={handleScrubChange}
+          onPointerUp={handleScrubRelease}
           className="flex-1 accent-indigo-500 h-1"
           aria-label="Timeline"
         />

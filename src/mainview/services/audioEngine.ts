@@ -248,13 +248,27 @@ export class AudioEngine {
   }
 
   seek(position: number): void {
-    // Read _intentPlaying before stop() clears it — the store's isPlaying is
-    // unreliable here because a previous seek() may have already set it to false
-    // via stop() while a new play() is still mid-decode.
+    // Read _intentPlaying before clearing it — the store's isPlaying is unreliable
+    // here because a previous seek() may have already set it to false while a new
+    // play() is still mid-decode.
     const wasPlaying = this._intentPlaying;
     const { currentFile } = usePlaybackStore.getState();
-    this.stop();
+    // Inline the source teardown instead of calling stop() so we can set pauseOffset
+    // to the target position BEFORE setIsPlaying(false) triggers a React render.
+    // stop() resets pauseOffset=0 first, which causes a one-frame position=0 flash
+    // in the waveform cursor whenever the user scrubs.
+    this._intentPlaying = false;
+    if (this.source) {
+      try {
+        this.source.stop();
+      } catch {
+        // Ignore if already stopped
+      }
+      this.source.disconnect();
+      this.source = null;
+    }
     this.pauseOffset = position;
+    usePlaybackStore.getState().setIsPlaying(false);
     if (wasPlaying && currentFile) {
       void this.play(currentFile);
     }

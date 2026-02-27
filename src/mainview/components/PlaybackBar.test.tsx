@@ -217,13 +217,24 @@ describe("PlaybackBar — timeline scrubber", () => {
     const scrubber = screen.getByTestId("timeline-scrubber") as HTMLInputElement;
     expect(Number(scrubber.value)).toBe(0);
   });
-
-  test("changing scrubber calls audioEngine.seek with the new position", () => {
+  test("releasing scrubber calls audioEngine.seek with the dragged position", () => {
     usePlaybackStore.setState({ ...usePlaybackStore.getState(), duration: 60 });
     render(<PlaybackBar />);
     const scrubber = screen.getByTestId("timeline-scrubber");
+    fireEvent.pointerDown(scrubber);
     fireEvent.change(scrubber, { target: { value: "30" } });
+    fireEvent.pointerUp(scrubber, { target: { value: "30" } });
     expect(mockSeek).toHaveBeenCalledWith(30);
+  });
+
+  test("dragging scrubber does not call audioEngine.seek until release", () => {
+    usePlaybackStore.setState({ ...usePlaybackStore.getState(), duration: 60 });
+    render(<PlaybackBar />);
+    const scrubber = screen.getByTestId("timeline-scrubber");
+    fireEvent.pointerDown(scrubber);
+    fireEvent.change(scrubber, { target: { value: "15" } });
+    fireEvent.change(scrubber, { target: { value: "30" } });
+    expect(mockSeek).not.toHaveBeenCalled();
   });
 });
 
