@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { rpcClient } from "../rpc";
+import { filesApi } from "../api/files";
 import { useBrowserStore } from "../stores/browserStore";
 
 interface SearchBarProps {
@@ -18,14 +18,10 @@ export function SearchBar({ debounceMs = 300 }: SearchBarProps) {
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(async () => {
       if (value.trim()) {
-        const results = await rpcClient?.request?.dbSearchFiles?.({
-          query: value,
-        });
+        const results = await filesApi.search(value);
         if (results) setFileList(results);
       } else if (activeFolder) {
-        const files = await rpcClient?.request?.fsReaddir?.({
-          path: activeFolder,
-        });
+        const files = await filesApi.readdir(activeFolder);
         if (files) setFileList(files);
       }
     }, debounceMs);

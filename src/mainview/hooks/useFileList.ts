@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { rpcClient } from "../rpc";
+import { filesApi } from "../api/files";
 import { useAnalysisStore } from "../stores/analysisStore";
 import { useBrowserStore } from "../stores/browserStore";
 
@@ -40,19 +40,19 @@ export function useFileList() {
       }
     };
 
-    rpcClient?.request.fsReaddir({ path: activeFolder }).then((files) => {
+    filesApi.readdir(activeFolder)?.then((files) => {
       if (!cancelled) {
         loadFiles(files);
         void scanFiles(files);
       }
     });
 
-    rpcClient?.send.fsStartWatch({ path: activeFolder });
+    filesApi.startWatch(activeFolder);
 
     const handleChange = (e: Event) => {
       const { path } = (e as CustomEvent<{ path: string }>).detail;
       if (path === activeFolder) {
-        rpcClient?.request.fsReaddir({ path: activeFolder }).then((files) => {
+        filesApi.readdir(activeFolder)?.then((files) => {
           if (!cancelled) {
             loadFiles(files);
             void scanFiles(files);
@@ -65,7 +65,7 @@ export function useFileList() {
 
     return () => {
       cancelled = true;
-      rpcClient?.send.fsStopWatch({ path: activeFolder });
+      filesApi.stopWatch(activeFolder);
       window.removeEventListener("crate:directoryChanged", handleChange);
     };
   }, [activeFolder, setFileList]);
