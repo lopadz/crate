@@ -21,7 +21,9 @@ vi.mock("wavesurfer.js", () => ({
     }),
   },
 }));
-vi.mock("../services/audioEngine", () => ({ audioEngine: { seek: vi.fn() } }));
+vi.mock("../services/audioEngine", () => ({
+  audioEngine: { seek: vi.fn(), getPosition: vi.fn().mockReturnValue(0) },
+}));
 
 import { DetailPanel } from "./DetailPanel";
 

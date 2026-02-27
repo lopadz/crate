@@ -1,6 +1,6 @@
 import { PauseIcon, PlayIcon, RepeatIcon, StopIcon } from "@phosphor-icons/react";
-import { useEffect, useRef, useState } from "react";
 import { audioEngine } from "../services/audioEngine";
+import { useAudioPosition } from "../hooks/useAudioPosition";
 import { useBrowserStore } from "../stores/browserStore";
 import { usePlaybackStore } from "../stores/playbackStore";
 
@@ -14,24 +14,7 @@ function formatTime(seconds: number): string {
 export function PlaybackBar() {
   const { currentFile, isPlaying, loop, volume, duration, toggleLoop, setVolume } =
     usePlaybackStore();
-  const [position, setPosition] = useState(0);
-  const rafRef = useRef<number>(0);
-
-  // RAF loop to sync scrubber position while playing
-  useEffect(() => {
-    if (!isPlaying) return;
-    const tick = () => {
-      setPosition(audioEngine.getPosition());
-      rafRef.current = requestAnimationFrame(tick);
-    };
-    rafRef.current = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafRef.current);
-  }, [isPlaying]);
-
-  // Reset position display when file changes or playback stops
-  useEffect(() => {
-    if (!isPlaying) setPosition(audioEngine.getPosition());
-  }, [isPlaying]);
+  const position = useAudioPosition();
 
   const handlePlayPause = () => {
     if (isPlaying) {
@@ -44,9 +27,7 @@ export function PlaybackBar() {
   };
 
   const handleScrub = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const pos = Number(e.target.value);
-    setPosition(pos);
-    audioEngine.seek(pos);
+    audioEngine.seek(Number(e.target.value));
   };
 
   return (

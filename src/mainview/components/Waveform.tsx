@@ -1,13 +1,14 @@
 import { useEffect, useRef } from "react";
 import WaveSurfer from "wavesurfer.js";
+import { useAudioPosition } from "../hooks/useAudioPosition";
 import { audioEngine } from "../services/audioEngine";
 import { usePlaybackStore } from "../stores/playbackStore";
 
 export function Waveform() {
   const currentFile = usePlaybackStore((s) => s.currentFile);
-  const isPlaying = usePlaybackStore((s) => s.isPlaying);
   const containerRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WaveSurfer | null>(null);
+  const position = useAudioPosition();
 
   // Create WaveSurfer instance once on mount
   useEffect(() => {
@@ -43,23 +44,14 @@ export function Waveform() {
     if (blobUrl) wsRef.current.load(blobUrl).then(() => wsRef.current?.seekTo(0));
   }, [currentFile]);
 
-  // Sync WaveSurfer cursor with actual audio position on every animation frame.
+  // Sync WaveSurfer cursor whenever the shared audio position changes.
   // The modulo handles loop wrap-around: elapsed time exceeds duration when
   // AudioBufferSourceNode loops, so we fold it back into [0, duration).
   useEffect(() => {
-    if (!isPlaying) return;
-    let rafId: number;
-    const tick = () => {
-      if (wsRef.current) {
-        const pos = audioEngine.getPosition();
-        const duration = wsRef.current.getDuration();
-        if (duration > 0) wsRef.current.seekTo((pos % duration) / duration);
-      }
-      rafId = requestAnimationFrame(tick);
-    };
-    rafId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafId);
-  }, [isPlaying]);
+    if (!wsRef.current) return;
+    const duration = wsRef.current.getDuration();
+    if (duration > 0) wsRef.current.seekTo((position % duration) / duration);
+  }, [position]);
 
   return <div data-testid="waveform" ref={containerRef} className="w-full h-24 bg-[#111]" />;
 }
