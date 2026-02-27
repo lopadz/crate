@@ -38,6 +38,8 @@ interface BrowserState {
       lufsIntegrated: number;
       lufsPeak: number;
       dynamicRange: number;
+      duration: number | null;
+      sampleRate: number | null;
     },
   ) => void;
 }
@@ -114,6 +116,8 @@ export const useBrowserStore = create<BrowserState>((set, get) => ({
               lufsIntegrated: data.lufsIntegrated,
               lufsPeak: data.lufsPeak,
               dynamicRange: data.dynamicRange,
+              duration: data.duration ?? undefined,
+              sampleRate: data.sampleRate ?? undefined,
             }
           : f,
       ),

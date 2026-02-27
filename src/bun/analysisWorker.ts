@@ -2,13 +2,15 @@
  * Bun Worker thread: decodes an audio file to PCM and runs analysis.
  *
  * Receives: { type: "ANALYZE", compositeId: string, path: string }
- * Posts:    { type: "RESULT", compositeId, bpm, key, keyCamelot, lufsIntegrated, lufsPeak, dynamicRange }
+ * Posts:    { type: "RESULT", compositeId, bpm, key, keyCamelot, lufsIntegrated, lufsPeak, dynamicRange, duration, sampleRate }
  *      or:  { type: "ERROR",  compositeId, error: string }
  *
  * Supported formats: WAV (fast path), MP3, FLAC, AIFF, OGG, M4A/AAC, OPUS (via audio-decode).
+ * Duration is computed via mediabunny (pure-TS demuxer, no WebCodecs needed).
  */
 
 import audioDecode from "audio-decode";
+import { ALL_FORMATS, BufferSource, Input } from "mediabunny";
 import { detectBpm } from "./bpmDetection";
 import { detectKey } from "./keyDetection";
 import { measureLufs } from "./lufs";
@@ -134,6 +136,17 @@ export async function decodeAudio(buffer: ArrayBuffer, path: string): Promise<Wa
   }
 }
 
+// ─── Duration via mediabunny demuxer (no WebCodecs needed) ───────────────────
+
+async function computeDuration(buffer: ArrayBuffer): Promise<number | null> {
+  try {
+    const input = new Input({ source: new BufferSource(buffer), formats: ALL_FORMATS });
+    return await input.computeDuration();
+  } catch {
+    return null;
+  }
+}
+
 // ─── Worker message handler ───────────────────────────────────────────────────
 
 self.onmessage = async (event: MessageEvent) => {
@@ -144,7 +157,10 @@ self.onmessage = async (event: MessageEvent) => {
 
   try {
     const buffer = await Bun.file(path).arrayBuffer();
-    const decoded = await decodeAudio(buffer, path);
+    const [decoded, duration] = await Promise.all([
+      decodeAudio(buffer, path),
+      computeDuration(buffer),
+    ]);
 
     if (!decoded) {
       // Unsupported format — return empty analysis rather than error
@@ -157,6 +173,8 @@ self.onmessage = async (event: MessageEvent) => {
         lufsIntegrated: -Infinity,
         lufsPeak: 0,
         dynamicRange: 0,
+        duration,
+        sampleRate: null,
       });
       return;
     }
@@ -175,6 +193,8 @@ self.onmessage = async (event: MessageEvent) => {
       lufsIntegrated: lufs.integrated,
       lufsPeak: lufs.truePeak,
       dynamicRange: lufs.dynamicRange,
+      duration,
+      sampleRate,
     });
   } catch (err) {
     self.postMessage({

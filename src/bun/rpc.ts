@@ -55,6 +55,8 @@ export function createRpc(
       lufsIntegrated: -Infinity,
       lufsPeak: 0,
       dynamicRange: 0,
+      duration: null,
+      sampleRate: null,
     };
     queries.setAnalysisResult(err.compositeId, stub);
     onAnalysisResult(stub);
@@ -80,6 +82,8 @@ export function createRpc(
                   lufsIntegrated: data.lufsIntegrated ?? undefined,
                   lufsPeak: data.lufsPeak ?? undefined,
                   dynamicRange: data.dynamicRange ?? undefined,
+                  duration: data.duration ?? undefined,
+                  sampleRate: data.sampleRate ?? undefined,
                   rating: data.rating,
                 }
               : f;

@@ -290,7 +290,7 @@ export function createQueryHelpers(db: Database) {
   );
 
   const getFileByPathStmt = db.prepare(
-    `SELECT id, composite_id, color_tag, bpm, key, key_camelot, lufs_integrated, lufs_peak, dynamic_range FROM files WHERE path = ?`,
+    `SELECT id, composite_id, color_tag, bpm, key, key_camelot, lufs_integrated, lufs_peak, dynamic_range, duration, sample_rate FROM files WHERE path = ?`,
   );
 
   const setAnalysisResultStmt = db.prepare(
@@ -301,6 +301,8 @@ export function createQueryHelpers(db: Database) {
        lufs_integrated  = ?,
        lufs_peak        = ?,
        dynamic_range    = ?,
+       duration         = COALESCE(?, duration),
+       sample_rate      = COALESCE(?, sample_rate),
        last_analyzed_at = ?
      WHERE composite_id = ?`,
   );
@@ -471,6 +473,8 @@ export function createQueryHelpers(db: Database) {
         lufsIntegrated: number | null;
         lufsPeak: number | null;
         dynamicRange: number | null;
+        duration: number | null;
+        sampleRate: number | null;
         rating: number | undefined;
       }
     > {
@@ -485,6 +489,8 @@ export function createQueryHelpers(db: Database) {
           lufsIntegrated: number | null;
           lufsPeak: number | null;
           dynamicRange: number | null;
+          duration: number | null;
+          sampleRate: number | null;
           rating: number | undefined;
         }
       >();
@@ -501,6 +507,8 @@ export function createQueryHelpers(db: Database) {
             lufs_integrated: number | null;
             lufs_peak: number | null;
             dynamic_range: number | null;
+            duration: number | null;
+            sample_rate: number | null;
           } | null;
           if (row) {
             const ratingRow = getRatingStmt.get(row.composite_id) as { value: number } | null;
@@ -513,6 +521,8 @@ export function createQueryHelpers(db: Database) {
               lufsIntegrated: row.lufs_integrated,
               lufsPeak: row.lufs_peak,
               dynamicRange: row.dynamic_range,
+              duration: row.duration,
+              sampleRate: row.sample_rate,
               rating: ratingRow?.value ?? undefined,
             });
           }
@@ -530,6 +540,8 @@ export function createQueryHelpers(db: Database) {
         lufsIntegrated: number;
         lufsPeak: number;
         dynamicRange: number;
+        duration?: number | null;
+        sampleRate?: number | null;
       },
     ): void {
       setAnalysisResultStmt.run(
@@ -539,6 +551,8 @@ export function createQueryHelpers(db: Database) {
         data.lufsIntegrated,
         data.lufsPeak,
         data.dynamicRange,
+        data.duration ?? null,
+        data.sampleRate ?? null,
         Date.now(),
         compositeId,
       );

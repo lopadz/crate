@@ -631,6 +631,94 @@ describe("getFilesDataBatch — rating", () => {
   });
 });
 
+// ─── setAnalysisResult ────────────────────────────────────────────────────────
+
+describe("setAnalysisResult", () => {
+  let db: ReturnType<typeof makeDb>;
+  let q: ReturnType<typeof createQueryHelpers>;
+
+  beforeEach(() => {
+    db = makeDb();
+    q = createQueryHelpers(db);
+    db.run(
+      `INSERT INTO files (path, composite_id, last_seen_at) VALUES ('/a/kick.wav', 'ar-cid-1', 0)`,
+    );
+  });
+
+  test("persists duration and sampleRate to DB", () => {
+    q.setAnalysisResult("ar-cid-1", {
+      bpm: 120,
+      key: "Am",
+      keyCamelot: "8A",
+      lufsIntegrated: -14,
+      lufsPeak: -1,
+      dynamicRange: 8,
+      duration: 62.5,
+      sampleRate: 44100,
+    });
+    const row = db
+      .query("SELECT duration, sample_rate FROM files WHERE composite_id = 'ar-cid-1'")
+      .get() as { duration: number; sample_rate: number };
+    expect(row.duration).toBeCloseTo(62.5);
+    expect(row.sample_rate).toBe(44100);
+  });
+
+  test("duration COALESCE: does not overwrite existing value when null is passed", () => {
+    db.run(`UPDATE files SET duration = 30.0 WHERE composite_id = 'ar-cid-1'`);
+    q.setAnalysisResult("ar-cid-1", {
+      bpm: null,
+      key: null,
+      keyCamelot: null,
+      lufsIntegrated: -Infinity,
+      lufsPeak: 0,
+      dynamicRange: 0,
+      duration: null,
+      sampleRate: null,
+    });
+    const row = db
+      .query("SELECT duration FROM files WHERE composite_id = 'ar-cid-1'")
+      .get() as { duration: number };
+    expect(row.duration).toBeCloseTo(30.0);
+  });
+});
+
+// ─── getFilesDataBatch — duration field ──────────────────────────────────────
+
+describe("getFilesDataBatch — duration", () => {
+  let db: ReturnType<typeof makeDb>;
+  let q: ReturnType<typeof createQueryHelpers>;
+
+  beforeEach(() => {
+    db = makeDb();
+    q = createQueryHelpers(db);
+    db.run(
+      `INSERT INTO files (path, composite_id, last_seen_at) VALUES ('/a/kick.wav', 'dur-cid-1', 0)`,
+    );
+  });
+
+  test("returns duration after setAnalysisResult stores it", () => {
+    q.setAnalysisResult("dur-cid-1", {
+      bpm: null,
+      key: null,
+      keyCamelot: null,
+      lufsIntegrated: -14,
+      lufsPeak: -1,
+      dynamicRange: 8,
+      duration: 112.5,
+      sampleRate: 44100,
+    });
+    const data = q.getFilesDataBatch(["/a/kick.wav"]).get("/a/kick.wav");
+    expect(data?.duration).toBeCloseTo(112.5);
+    expect(data?.sampleRate).toBe(44100);
+  });
+
+  test("returns null duration when not yet analyzed", () => {
+    const data = q.getFilesDataBatch(["/a/kick.wav"]).get("/a/kick.wav");
+    expect(data?.duration).toBeNull();
+    expect(data?.sampleRate).toBeNull();
+  });
+});
+
 // ─── file_operations_log helpers ─────────────────────────────────────────────
 
 describe("logOperation / getOperationsLog / markRolledBack", () => {

@@ -20,6 +20,8 @@ export interface AnalysisResult {
   lufsIntegrated: number;
   lufsPeak: number;
   dynamicRange: number;
+  duration: number | null;
+  sampleRate: number | null;
 }
 
 export interface AnalysisError {

@@ -206,6 +206,8 @@ export type CrateRPC = {
         lufsIntegrated: number;
         lufsPeak: number;
         dynamicRange: number;
+        duration: number | null;
+        sampleRate: number | null;
       };
       // Phase 3 — conversion progress
       convertProgress: { fileId: string; percent: number };
