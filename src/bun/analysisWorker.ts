@@ -42,9 +42,11 @@ function decodeWav(buffer: ArrayBuffer): WavData | null {
       channels = readUint16LE(buf, chunk.offset + 2);
       sampleRate = readUint32LE(buf, chunk.offset + 4);
       bitDepth = readUint16LE(buf, chunk.offset + 14);
-      // For extensible format, real format is in the extension
-      if (fmtTag === 65534 && chunk.size >= 18) {
-        fmtTag = readUint16LE(buf, chunk.offset + 16); // sub-format GUID low bytes
+      // For extensible format, real format is in the SubFormat GUID.
+      // Extensible fmt layout: cbSize at offset 16, SubFormat GUID at offset 24.
+      // We need at least 26 bytes of fmt data to read the first two GUID bytes.
+      if (fmtTag === 65534 && chunk.size >= 26) {
+        fmtTag = readUint16LE(buf, chunk.offset + 24); // sub-format GUID low bytes
       }
     } else if (chunk.id === "data") {
       dataOffset = chunk.offset;
