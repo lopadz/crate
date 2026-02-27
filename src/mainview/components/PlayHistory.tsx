@@ -1,14 +1,10 @@
 import type { AudioFile } from "../../shared/types";
+import { historyApi } from "../api/history";
 import { useRpcFetch } from "../hooks/useRpcFetch";
-import { rpcClient } from "../rpc";
 import { useBrowserStore } from "../stores/browserStore";
 
 export function PlayHistory() {
-  const history = useRpcFetch(
-    () => rpcClient?.request.dbGetPlayHistory({ limit: 10 }),
-    [],
-    [] as AudioFile[],
-  );
+  const history = useRpcFetch(() => historyApi.getRecent(10), [], [] as AudioFile[]);
   const setFileList = useBrowserStore((s) => s.setFileList);
   const setSelectedIndex = useBrowserStore((s) => s.setSelectedIndex);
 
