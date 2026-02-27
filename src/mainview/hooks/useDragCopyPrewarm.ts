@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { rpcClient } from "../rpc";
+import { dawApi } from "../api/daw";
 import { useBrowserStore } from "../stores/browserStore";
 import { useSettingsStore } from "../stores/settingsStore";
 
@@ -51,15 +51,15 @@ export function useDragCopyPrewarm(): void {
 
     cache = null;
 
-    void rpcClient?.request
-      .dawCreateDragCopy({
+    void dawApi
+      .createDragCopy({
         path: file.path,
         pattern: dragPattern,
         bpm: file.bpm,
         key: file.key,
         keyCamelot: file.keyCamelot,
       })
-      .then((tempPath) => {
+      ?.then((tempPath) => {
         cache = { compositeId, pattern: dragPattern, tempPath };
       });
   }, [fileList, selectedIndex, dragPattern]);
