@@ -1,16 +1,16 @@
-import { useEffect, useState } from "react";
 import type { AudioFile } from "../../shared/types";
+import { useRpcFetch } from "../hooks/useRpcFetch";
 import { rpcClient } from "../rpc";
 import { useBrowserStore } from "../stores/browserStore";
 
 export function PlayHistory() {
-  const [history, setHistory] = useState<AudioFile[]>([]);
+  const history = useRpcFetch(
+    () => rpcClient?.request.dbGetPlayHistory({ limit: 10 }),
+    [],
+    [] as AudioFile[],
+  );
   const setFileList = useBrowserStore((s) => s.setFileList);
   const setSelectedIndex = useBrowserStore((s) => s.setSelectedIndex);
-
-  useEffect(() => {
-    void rpcClient?.request.dbGetPlayHistory({ limit: 10 }).then(setHistory);
-  }, []);
 
   const handleClick = (index: number) => {
     setFileList(history);

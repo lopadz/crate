@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useRpcState } from "../hooks/useRpcState";
 import { rpcClient } from "../rpc";
 
 interface NoteEditorProps {
@@ -6,11 +6,11 @@ interface NoteEditorProps {
 }
 
 export function NoteEditor({ compositeId }: NoteEditorProps) {
-  const [content, setContent] = useState("");
-
-  useEffect(() => {
-    void rpcClient?.request.dbGetNote({ compositeId }).then((note) => setContent(note ?? ""));
-  }, [compositeId]);
+  const [content, setContent] = useRpcState(
+    () => rpcClient?.request.dbGetNote({ compositeId }).then((note) => note ?? ""),
+    [compositeId],
+    "",
+  );
 
   const handleBlur = () => {
     rpcClient?.send.dbSetNote({ compositeId, content });

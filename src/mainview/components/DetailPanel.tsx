@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
 import type { Tag } from "../../shared/types";
+import { useRpcFetch } from "../hooks/useRpcFetch";
 import { useSelectedFile } from "../hooks/useSelectedFile";
 import { rpcClient } from "../rpc";
 import { NoteEditor } from "./NoteEditor";
@@ -8,23 +8,19 @@ import { Waveform } from "./Waveform";
 
 export function DetailPanel() {
   const selectedFile = useSelectedFile();
+  const compositeId = selectedFile?.compositeId;
 
-  const [fileTags, setFileTags] = useState<Tag[]>([]);
-  const [allTags, setAllTags] = useState<Tag[]>([]);
+  const allTags = useRpcFetch(
+    () => rpcClient?.request.dbGetAllTags({}),
+    [],
+    [] as Tag[],
+  );
 
-  useEffect(() => {
-    if (!selectedFile?.compositeId) {
-      setFileTags([]);
-      return;
-    }
-    void rpcClient?.request
-      .dbGetFileTags({ compositeId: selectedFile.compositeId })
-      .then(setFileTags);
-  }, [selectedFile?.compositeId]);
-
-  useEffect(() => {
-    void rpcClient?.request.dbGetAllTags({}).then(setAllTags);
-  }, []);
+  const fileTags = useRpcFetch(
+    compositeId ? () => rpcClient?.request.dbGetFileTags({ compositeId }) : null,
+    [compositeId],
+    [] as Tag[],
+  );
 
   return (
     <div
@@ -35,14 +31,10 @@ export function DetailPanel() {
         Detail
       </div>
       <Waveform />
-      {selectedFile?.compositeId && (
+      {compositeId && (
         <>
-          <TagEditor
-            compositeId={selectedFile.compositeId}
-            initialTags={fileTags}
-            allTags={allTags}
-          />
-          <NoteEditor compositeId={selectedFile.compositeId} />
+          <TagEditor compositeId={compositeId} initialTags={fileTags} allTags={allTags} />
+          <NoteEditor compositeId={compositeId} />
         </>
       )}
     </div>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useRpcState } from "../hooks/useRpcState";
 import { rpcClient } from "../rpc";
 import { useBrowserStore } from "../stores/browserStore";
 import { basename } from "../utils/path";
@@ -9,15 +9,16 @@ interface FolderNode {
 }
 
 export function FolderTree() {
-  const [pinnedFolders, setPinnedFolders] = useState<FolderNode[]>([]);
+  const [pinnedFolders, setPinnedFolders] = useRpcState(
+    () =>
+      rpcClient?.request
+        .dbGetPinnedFolders({})
+        .then((paths) => paths.map((path) => ({ path, children: null } as FolderNode))),
+    [],
+    [] as FolderNode[],
+  );
   const activeFolder = useBrowserStore((s) => s.activeFolder);
   const setActiveFolder = useBrowserStore((s) => s.setActiveFolder);
-
-  useEffect(() => {
-    rpcClient?.request.dbGetPinnedFolders({}).then((paths) => {
-      setPinnedFolders(paths.map((path) => ({ path, children: null })));
-    });
-  }, []);
 
   function handleExpand(path: string) {
     rpcClient?.request.fsListDirs({ path }).then((children) => {
