@@ -209,6 +209,89 @@ describe("AnalysisQueue — events", () => {
   });
 });
 
+// ─── Worker crash (onerror) ───────────────────────────────────────────────────
+
+describe("AnalysisQueue — onerror", () => {
+  test("emits error and does not block queue when worker crashes via onerror", async () => {
+    const factory = (): WorkerLike => {
+      const w: WorkerLike = {
+        onmessage: null,
+        onerror: null,
+        postMessage() {
+          // Simulate crash: onerror fires instead of onmessage
+          setTimeout(() => w.onerror?.({ message: "Worker crashed" }), 0);
+        },
+        terminate() {},
+      };
+      return w;
+    };
+
+    const q = new AnalysisQueue({ maxConcurrent: 1, workerFactory: factory });
+    q.on("error", () => {}); // suppress unhandled-event warning
+
+    const err = await new Promise<object>((resolve) => {
+      q.once("error", resolve);
+      q.enqueue("cid-crash", "/crash.wav");
+    });
+
+    expect((err as Record<string, unknown>).compositeId).toBe("cid-crash");
+    expect((err as Record<string, unknown>).error).toContain("crashed");
+    expect(q.getStatus().running).toBe(0); // queue not permanently blocked
+  });
+
+  test("queue continues processing after a worker crash", async () => {
+    let callCount = 0;
+    const factory = (): WorkerLike => {
+      callCount++;
+      const w: WorkerLike = {
+        onmessage: null,
+        onerror: null,
+        postMessage() {
+          if (callCount === 1) {
+            // First worker crashes
+            setTimeout(() => w.onerror?.({ message: "crash" }), 0);
+          } else {
+            // Subsequent workers succeed
+            setTimeout(
+              () => w.onmessage?.({ data: { ...RESULT_PAYLOAD, compositeId: "cid-2" } }),
+              0,
+            );
+          }
+        },
+        terminate() {},
+      };
+      return w;
+    };
+
+    const q = new AnalysisQueue({ maxConcurrent: 1, workerFactory: factory });
+    q.on("error", () => {});
+
+    const events: string[] = [];
+    const done = new Promise<void>((resolve) => {
+      let total = 0;
+      const check = () => {
+        if (++total === 2) resolve();
+      };
+      q.on("error", () => {
+        events.push("error");
+        check();
+      });
+      q.on("result", () => {
+        events.push("result");
+        check();
+      });
+    });
+
+    q.enqueue("cid-1", "/crash.wav");
+    q.enqueue("cid-2", "/good.wav");
+
+    await done;
+
+    expect(events).toContain("error");
+    expect(events).toContain("result");
+  });
+});
+
 // ─── Concurrency ──────────────────────────────────────────────────────────────
 
 describe("AnalysisQueue — concurrency", () => {

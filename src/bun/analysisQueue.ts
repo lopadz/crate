@@ -35,6 +35,7 @@ export interface QueueStatus {
 
 export interface WorkerLike {
   onmessage: ((event: { data: unknown }) => void) | null;
+  onerror?: ((event: { message?: string }) => void) | null;
   postMessage: (msg: unknown) => void;
   terminate?: () => void;
 }
@@ -113,6 +114,16 @@ export class AnalysisQueue extends EventEmitter {
       } else {
         this.emit("error", data as AnalysisError);
       }
+      worker.terminate?.();
+      this.tick();
+    };
+
+    worker.onerror = (event) => {
+      this.running--;
+      this.emit("error", {
+        compositeId: item.compositeId,
+        error: event.message ?? "Worker crashed",
+      } satisfies AnalysisError);
       worker.terminate?.();
       this.tick();
     };
