@@ -5,12 +5,13 @@
  * Posts:    { type: "RESULT", compositeId, bpm, key, keyCamelot, lufsIntegrated, lufsPeak, dynamicRange, duration, sampleRate }
  *      or:  { type: "ERROR",  compositeId, error: string }
  *
- * Supported formats: WAV (fast path), MP3, FLAC, AIFF, OGG, M4A/AAC, OPUS (via audio-decode).
+ * Supported formats: WAV (fast path), MP3 (fast path via mpg123-decoder), FLAC, OGG, OPUS (via audio-decode).
  * Duration is computed via mediabunny (pure-TS demuxer, no WebCodecs needed).
  */
 
 import audioDecode from "audio-decode";
 import { ALL_FORMATS, BufferSource, Input } from "mediabunny";
+import { MPEGDecoder } from "mpg123-decoder";
 import { detectBpm } from "./bpmDetection";
 import { detectKey } from "./keyDetection";
 import { measureLufs } from "./lufs";
@@ -106,13 +107,26 @@ function mixToMono(channels: Float32Array[]): Float32Array {
   return mono;
 }
 
+// ─── MP3 fast-path decoder ────────────────────────────────────────────────────
+
+// Bypasses audio-decode's audioType() format detection, which misidentifies
+// some MP3 files (those whose bytes 4–7 happen to spell "ftyp") as M4A.
+async function decodeMp3(buffer: ArrayBuffer): Promise<WavData | null> {
+  const decoder = new MPEGDecoder();
+  await decoder.ready;
+  const result = decoder.decode(new Uint8Array(buffer));
+  decoder.free();
+  if (result.samplesDecoded === 0) return null;
+  return { mono: mixToMono(result.channelData), sampleRate: result.sampleRate };
+}
+
 // ─── Multi-format decoder ─────────────────────────────────────────────────────
 
 /**
  * Decodes any supported audio format to mono PCM + sample rate.
  *
- * Fast path: WAV and AIFF/AIF use the hand-rolled PCM decoder (zero WASM overhead).
- * Fallback: audio-decode handles MP3, FLAC, OGG, M4A, AAC, OPUS, and non-PCM WAVs.
+ * Fast path: WAV uses the hand-rolled PCM decoder; MP3 uses mpg123-decoder directly.
+ * Fallback: audio-decode handles FLAC, OGG, OPUS, and non-PCM WAVs.
  *
  * Exported for unit testing.
  */
@@ -122,6 +136,9 @@ export async function decodeAudio(buffer: ArrayBuffer, path: string): Promise<Wa
     const result = decodeWav(buffer);
     if (result) return result;
     // Fall through to audio-decode for non-PCM WAV (e.g. ADPCM, float extensible)
+  }
+  if (ext === "mp3") {
+    return decodeMp3(buffer);
   }
   try {
     const decoded = await audioDecode(buffer);
