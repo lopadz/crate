@@ -129,7 +129,7 @@ describe("AudioEngine", () => {
     mockMasterGainNode.gain.value = 1.0;
     mockGainNode.gain.value = 1.0;
     // mockReset() clears the once-queue so unconsumed entries from tests that skip play()
-    // (getAudioUrl, getBlobUrl, preload) don't accumulate and corrupt subsequent tests.
+    // (getAudioUrl, preload) don't accumulate and corrupt subsequent tests.
     mockCreateGain.mockReset();
     mockCreateGain.mockReturnValueOnce(mockMasterGainNode).mockReturnValue(mockGainNode);
     mockFsReadAudio.mockResolvedValue("dGVzdA==");
@@ -212,11 +212,6 @@ describe("AudioEngine", () => {
 
   test("getAudioUrl() returns undefined when server is not configured", () => {
     expect(engine.getAudioUrl("/never/loaded.wav")).toBeUndefined();
-  });
-
-  test("getBlobUrl() delegates to getAudioUrl()", () => {
-    engine.setServerConfig("http://localhost:9999", "tok123");
-    expect(engine.getBlobUrl(file.path)).toBe(engine.getAudioUrl(file.path));
   });
 
   test("preload() warms the cache without playing", async () => {

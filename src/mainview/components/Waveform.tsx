@@ -35,13 +35,24 @@ export function Waveform() {
   }, []);
 
   // Load new file whenever currentFile changes.
-  // audioEngine always decodes before setting currentFile, so the blob URL is ready.
+  // audioEngine always decodes before setting currentFile, so the AudioBuffer is cached.
+  // Pass the decoded channel data and duration directly to WaveSurfer so it never has
+  // to call AudioContext.decodeAudioData itself — this avoids FLAC decode failures in
+  // WKWebView where FLAC may not be supported by the native audio decoder.
   // After load resolves, reset the cursor to the start so it doesn't carry over
   // the fractional position from the previous file.
   useEffect(() => {
     if (!currentFile || !wsRef.current) return;
-    const blobUrl = audioEngine.getBlobUrl(currentFile.path);
-    if (blobUrl) wsRef.current.load(blobUrl).then(() => wsRef.current?.seekTo(0));
+    const url = audioEngine.getAudioUrl(currentFile.path);
+    if (!url) return;
+    const buffer = audioEngine.getCachedBuffer(currentFile.path);
+    const peaks = buffer
+      ? (Array.from({ length: buffer.numberOfChannels }, (_, ch) =>
+          buffer.getChannelData(ch),
+        ) as Float32Array[])
+      : undefined;
+    const duration = buffer?.duration;
+    wsRef.current.load(url, peaks, duration).then(() => wsRef.current?.seekTo(0));
   }, [currentFile]);
 
   // Sync WaveSurfer cursor whenever the shared audio position changes.

@@ -13,7 +13,8 @@ const {
   mockSeek,
   mockGetPosition,
   mockSeekTo,
-  mockGetBlobUrl,
+  mockGetAudioUrl,
+  mockGetCachedBuffer,
 } = vi.hoisted(() => ({
   mockLoad: vi.fn().mockResolvedValue(undefined),
   mockDestroy: vi.fn(),
@@ -23,7 +24,8 @@ const {
   mockSeek: vi.fn(),
   mockGetPosition: vi.fn().mockReturnValue(0),
   mockSeekTo: vi.fn(),
-  mockGetBlobUrl: vi.fn().mockReturnValue("blob:mock://test"),
+  mockGetAudioUrl: vi.fn().mockReturnValue("http://audio.mock/test"),
+  mockGetCachedBuffer: vi.fn().mockReturnValue(undefined),
 }));
 
 // ── WaveSurfer mock ───────────────────────────────────────────────────────────
@@ -35,7 +37,12 @@ vi.mock("wavesurfer.js", () => ({
 // ── audioEngine mock ──────────────────────────────────────────────────────────
 
 vi.mock("../services/audioEngine", () => ({
-  audioEngine: { seek: mockSeek, getPosition: mockGetPosition, getBlobUrl: mockGetBlobUrl },
+  audioEngine: {
+    seek: mockSeek,
+    getPosition: mockGetPosition,
+    getAudioUrl: mockGetAudioUrl,
+    getCachedBuffer: mockGetCachedBuffer,
+  },
 }));
 
 // ── Imports (after mocks) ─────────────────────────────────────────────────────
@@ -97,18 +104,33 @@ describe("Waveform", () => {
     expect(mockCreate).toHaveBeenCalledOnce();
   });
 
-  test("loads the current file via blob URL when currentFile is set", async () => {
+  test("loads the current file when currentFile is set", async () => {
     usePlaybackStore.setState({
       ...usePlaybackStore.getState(),
       currentFile: file,
     });
     render(<Waveform />);
     await act(async () => {});
-    expect(mockGetBlobUrl).toHaveBeenCalledWith(file.path);
-    expect(mockLoad).toHaveBeenCalledWith("blob:mock://test");
+    expect(mockGetAudioUrl).toHaveBeenCalledWith(file.path);
+    expect(mockLoad).toHaveBeenCalledWith("http://audio.mock/test", undefined, undefined);
   });
 
-  test("re-loads via blob URL when currentFile changes", async () => {
+  test("passes decoded peaks and duration from cached buffer when available", async () => {
+    const ch0 = new Float32Array([0.1, -0.1]);
+    const ch1 = new Float32Array([0.2, -0.2]);
+    const mockBuffer = {
+      numberOfChannels: 2,
+      getChannelData: (ch: number) => (ch === 0 ? ch0 : ch1),
+      duration: 42,
+    };
+    mockGetCachedBuffer.mockReturnValue(mockBuffer);
+    usePlaybackStore.setState({ ...usePlaybackStore.getState(), currentFile: file });
+    render(<Waveform />);
+    await act(async () => {});
+    expect(mockLoad).toHaveBeenCalledWith("http://audio.mock/test", [ch0, ch1], 42);
+  });
+
+  test("re-loads when currentFile changes", async () => {
     render(<Waveform />);
     act(() =>
       usePlaybackStore.setState({
@@ -125,7 +147,7 @@ describe("Waveform", () => {
     );
     await act(async () => {});
     expect(mockLoad).toHaveBeenCalledTimes(2);
-    expect(mockLoad).toHaveBeenLastCalledWith("blob:mock://test");
+    expect(mockLoad).toHaveBeenLastCalledWith("http://audio.mock/test", undefined, undefined);
   });
 
   test("does not call load when currentFile is null", async () => {

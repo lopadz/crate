@@ -62,9 +62,9 @@ export class AudioEngine {
     return `${this.serverBaseUrl}/audio?path=${encodeURIComponent(path)}&token=${this.serverToken}`;
   }
 
-  /** @deprecated Use getAudioUrl(). Kept for Waveform.tsx compatibility. */
-  getBlobUrl(path: string): string | undefined {
-    return this.getAudioUrl(path);
+  /** Returns the cached AudioBuffer for a path, if already decoded. */
+  getCachedBuffer(path: string): AudioBuffer | undefined {
+    return this.cache.get(path);
   }
 
   private getCtx(): AudioContext {

@@ -675,9 +675,9 @@ describe("setAnalysisResult", () => {
       duration: null,
       sampleRate: null,
     });
-    const row = db
-      .query("SELECT duration FROM files WHERE composite_id = 'ar-cid-1'")
-      .get() as { duration: number };
+    const row = db.query("SELECT duration FROM files WHERE composite_id = 'ar-cid-1'").get() as {
+      duration: number;
+    };
     expect(row.duration).toBeCloseTo(30.0);
   });
 });
