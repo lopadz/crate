@@ -1,5 +1,16 @@
 import { describe, expect, test } from "bun:test";
-import { isWavFile, parseWavChunks, readUint16LE, readUint32LE, writeUint32LE } from "./wavUtils";
+import {
+  isAiffFile,
+  isWavFile,
+  parseAiffChunks,
+  parseWavChunks,
+  read80BitFloat,
+  readUint16BE,
+  readUint16LE,
+  readUint32BE,
+  readUint32LE,
+  writeUint32LE,
+} from "./wavUtils";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -77,6 +88,121 @@ function makeWavWithOddChunk(): Uint8Array {
   return buf;
 }
 
+// ── AIFF test helpers ─────────────────────────────────────────────────────────
+
+function writeU16BE(buf: Uint8Array, offset: number, v: number): void {
+  buf[offset] = (v >> 8) & 0xff;
+  buf[offset + 1] = v & 0xff;
+}
+
+function writeU32BE(buf: Uint8Array, offset: number, v: number): void {
+  buf[offset] = (v >> 24) & 0xff;
+  buf[offset + 1] = (v >> 16) & 0xff;
+  buf[offset + 2] = (v >> 8) & 0xff;
+  buf[offset + 3] = v & 0xff;
+}
+
+/** Encodes a positive integer sample rate as 80-bit IEEE 754 extended (big-endian). */
+function write80BitFloat(buf: Uint8Array, offset: number, value: number): void {
+  const exp = Math.floor(Math.log2(value));
+  const mantHi = Math.round(value * 2 ** (31 - exp)) >>> 0;
+  const biasedExp = exp + 16383;
+  buf[offset] = (biasedExp >> 8) & 0x7f;
+  buf[offset + 1] = biasedExp & 0xff;
+  buf[offset + 2] = (mantHi >>> 24) & 0xff;
+  buf[offset + 3] = (mantHi >>> 16) & 0xff;
+  buf[offset + 4] = (mantHi >>> 8) & 0xff;
+  buf[offset + 5] = mantHi & 0xff;
+  buf.fill(0, offset + 6, offset + 10);
+}
+
+/**
+ * Builds a minimal valid FORM/AIFF buffer with silence.
+ * Layout: FORM header (12) + COMM chunk (8+18) + SSND chunk (8+8+data).
+ */
+function makeAiff(numChannels = 1, numFrames = 4, bitDepth = 16, sampleRate = 44100): Uint8Array {
+  const commSize = 18;
+  const dataSize = numFrames * numChannels * (bitDepth >> 3);
+  const ssndSize = 8 + dataSize;
+  const total = 12 + 8 + commSize + 8 + ssndSize;
+  const buf = new Uint8Array(total);
+
+  writeStr(buf, 0, "FORM");
+  writeU32BE(buf, 4, total - 8);
+  writeStr(buf, 8, "AIFF");
+
+  let off = 12;
+  writeStr(buf, off, "COMM");
+  off += 4;
+  writeU32BE(buf, off, commSize);
+  off += 4;
+  writeU16BE(buf, off, numChannels);
+  off += 2;
+  writeU32BE(buf, off, numFrames);
+  off += 4;
+  writeU16BE(buf, off, bitDepth);
+  off += 2;
+  write80BitFloat(buf, off, sampleRate);
+  off += 10;
+
+  writeStr(buf, off, "SSND");
+  off += 4;
+  writeU32BE(buf, off, ssndSize);
+  off += 4;
+  writeU32BE(buf, off, 0);
+  off += 4; // SSND offset field
+  writeU32BE(buf, off, 0);
+  off += 4; // SSND blockSize field
+
+  return buf;
+}
+
+/**
+ * Builds a minimal valid FORM/AIFC buffer with NONE compression type and silence.
+ * COMM is 24 bytes: 18 (base) + 4 (compressionType) + 2 (empty pascal string).
+ */
+function makeAifc(): Uint8Array {
+  const commSize = 24;
+  const ssndSize = 8 + 8; // 8 header fields + 8 bytes silence
+  const total = 12 + 8 + commSize + 8 + ssndSize;
+  const buf = new Uint8Array(total);
+
+  writeStr(buf, 0, "FORM");
+  writeU32BE(buf, 4, total - 8);
+  writeStr(buf, 8, "AIFC");
+
+  let off = 12;
+  writeStr(buf, off, "COMM");
+  off += 4;
+  writeU32BE(buf, off, commSize);
+  off += 4;
+  writeU16BE(buf, off, 1);
+  off += 2; // numChannels
+  writeU32BE(buf, off, 4);
+  off += 4; // numFrames
+  writeU16BE(buf, off, 16);
+  off += 2; // bitDepth
+  write80BitFloat(buf, off, 44100);
+  off += 10;
+  writeStr(buf, off, "NONE");
+  off += 4; // compressionType
+  buf[off] = 0;
+  off += 1; // pstring length = 0
+  buf[off] = 0;
+  off += 1; // pad byte
+
+  writeStr(buf, off, "SSND");
+  off += 4;
+  writeU32BE(buf, off, ssndSize);
+  off += 4;
+  writeU32BE(buf, off, 0);
+  off += 4;
+  writeU32BE(buf, off, 0);
+  off += 4;
+
+  return buf;
+}
+
 // ── readUint16LE ───────────────────────────────────────────────────────────────
 
 describe("readUint16LE", () => {
@@ -120,6 +246,84 @@ describe("isWavFile", () => {
       0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b,
     ]);
     expect(isWavFile(buf)).toBe(false);
+  });
+});
+
+// ── readUint16BE ───────────────────────────────────────────────────────────────
+
+describe("readUint16BE", () => {
+  test("reads big-endian 16-bit at offset", () => {
+    const buf = new Uint8Array([0x00, 0x00, 0x12, 0x34]); // 0x1234 at offset 2
+    expect(readUint16BE(buf, 2)).toBe(0x1234);
+  });
+});
+
+// ── readUint32BE ───────────────────────────────────────────────────────────────
+
+describe("readUint32BE", () => {
+  test("reads big-endian 32-bit at offset", () => {
+    const buf = new Uint8Array([0x00, 0x12, 0x34, 0x56, 0x78]);
+    expect(readUint32BE(buf, 1)).toBe(0x12345678);
+  });
+});
+
+// ── read80BitFloat ────────────────────────────────────────────────────────────
+
+describe("read80BitFloat", () => {
+  test("reads 44100 Hz encoded as 80-bit extended", () => {
+    // 44100: biasedExp=0x400E, mantHi=0xAC440000
+    const buf = new Uint8Array([0x40, 0x0e, 0xac, 0x44, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
+    expect(read80BitFloat(buf, 0)).toBe(44100);
+  });
+
+  test("returns 0 for all-zero buffer", () => {
+    expect(read80BitFloat(new Uint8Array(10), 0)).toBe(0);
+  });
+});
+
+// ── isAiffFile ────────────────────────────────────────────────────────────────
+
+describe("isAiffFile", () => {
+  test("returns true for a valid FORM/AIFF buffer", () => {
+    expect(isAiffFile(makeAiff())).toBe(true);
+  });
+
+  test("returns true for a valid FORM/AIFC buffer", () => {
+    expect(isAiffFile(makeAifc())).toBe(true);
+  });
+
+  test("returns false for a WAV buffer", () => {
+    expect(isAiffFile(makeWav())).toBe(false);
+  });
+
+  test("returns false for a short buffer", () => {
+    expect(isAiffFile(new Uint8Array(4))).toBe(false);
+  });
+});
+
+// ── parseAiffChunks ───────────────────────────────────────────────────────────
+
+describe("parseAiffChunks", () => {
+  test("returns array including a COMM entry for valid AIFF", () => {
+    const chunks = parseAiffChunks(makeAiff());
+    expect(chunks).not.toBeNull();
+    expect(chunks?.some((c) => c.id === "COMM")).toBe(true);
+  });
+
+  test("returns array including an SSND entry for valid AIFF", () => {
+    const chunks = parseAiffChunks(makeAiff());
+    expect(chunks?.some((c) => c.id === "SSND")).toBe(true);
+  });
+
+  test("SSND chunk offset points to start of chunk data (past 8-byte header)", () => {
+    // FORM(12) + COMM chunk(8+18=26) + SSND header(8) = 46
+    const chunks = parseAiffChunks(makeAiff());
+    const ssnd = chunks?.find((c) => c.id === "SSND");
+    expect(ssnd?.offset).toBe(46);
+  });
+
+  test("returns null for non-AIFF buffer", () => {
+    expect(parseAiffChunks(new Uint8Array(48))).toBeNull();
   });
 });
 

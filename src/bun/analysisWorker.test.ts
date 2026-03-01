@@ -20,6 +20,140 @@ mock.module("audio-decode", () => ({
 // ── Import under test (after mock is registered) ──────────────────────────────
 import { decodeAudio } from "./analysisWorker";
 
+// ── AIFF test helpers ─────────────────────────────────────────────────────────
+
+/** Encodes a positive integer sample rate as 80-bit IEEE 754 extended (big-endian). */
+function write80BitFloat(buf: Uint8Array, offset: number, value: number): void {
+  const exp = Math.floor(Math.log2(value));
+  const mantHi = Math.round(value * 2 ** (31 - exp)) >>> 0;
+  const biasedExp = exp + 16383;
+  buf[offset] = (biasedExp >> 8) & 0x7f;
+  buf[offset + 1] = biasedExp & 0xff;
+  buf[offset + 2] = (mantHi >>> 24) & 0xff;
+  buf[offset + 3] = (mantHi >>> 16) & 0xff;
+  buf[offset + 4] = (mantHi >>> 8) & 0xff;
+  buf[offset + 5] = mantHi & 0xff;
+  buf.fill(0, offset + 6, offset + 10);
+}
+
+/**
+ * Builds a FORM/AIFF buffer containing a 440 Hz sine wave (big-endian 16-bit PCM).
+ */
+function makeSineAiff(durationSeconds = 1, channels = 1, sampleRate = 44100): ArrayBuffer {
+  const numFrames = Math.floor(durationSeconds * sampleRate);
+  const commSize = 18;
+  const dataSize = numFrames * channels * 2; // 16-bit
+  const ssndSize = 8 + dataSize;
+  const total = 12 + 8 + commSize + 8 + ssndSize;
+  const buf = new ArrayBuffer(total);
+  const bytes = new Uint8Array(buf);
+  const view = new DataView(buf);
+
+  let off = 0;
+  bytes.set([0x46, 0x4f, 0x52, 0x4d]);
+  off += 4; // FORM
+  view.setUint32(off, total - 8, false);
+  off += 4;
+  bytes.set([0x41, 0x49, 0x46, 0x46], off);
+  off += 4; // AIFF
+
+  // COMM chunk
+  bytes.set([0x43, 0x4f, 0x4d, 0x4d], off);
+  off += 4;
+  view.setUint32(off, commSize, false);
+  off += 4;
+  view.setUint16(off, channels, false);
+  off += 2;
+  view.setUint32(off, numFrames, false);
+  off += 4;
+  view.setUint16(off, 16, false);
+  off += 2; // bitDepth
+  write80BitFloat(bytes, off, sampleRate);
+  off += 10;
+
+  // SSND chunk
+  bytes.set([0x53, 0x53, 0x4e, 0x44], off);
+  off += 4;
+  view.setUint32(off, ssndSize, false);
+  off += 4;
+  view.setUint32(off, 0, false);
+  off += 4; // SSND offset field
+  view.setUint32(off, 0, false);
+  off += 4; // SSND blockSize field
+
+  // 440 Hz sine, big-endian 16-bit PCM
+  for (let i = 0; i < numFrames; i++) {
+    const sample = Math.round(Math.sin((2 * Math.PI * 440 * i) / sampleRate) * 32767);
+    for (let ch = 0; ch < channels; ch++) {
+      view.setInt16(off + (i * channels + ch) * 2, sample, false);
+    }
+  }
+
+  return buf;
+}
+
+/**
+ * Builds a FORM/AIFC buffer with sowt (little-endian) compression and a 440 Hz sine wave.
+ */
+function makeSowtAifc(durationSeconds = 1, channels = 1, sampleRate = 44100): ArrayBuffer {
+  const numFrames = Math.floor(durationSeconds * sampleRate);
+  const commSize = 24; // 18 base + 4 compressionType + 2 empty pstring
+  const dataSize = numFrames * channels * 2;
+  const ssndSize = 8 + dataSize;
+  const total = 12 + 8 + commSize + 8 + ssndSize;
+  const buf = new ArrayBuffer(total);
+  const bytes = new Uint8Array(buf);
+  const view = new DataView(buf);
+
+  let off = 0;
+  bytes.set([0x46, 0x4f, 0x52, 0x4d]);
+  off += 4; // FORM
+  view.setUint32(off, total - 8, false);
+  off += 4;
+  bytes.set([0x41, 0x49, 0x46, 0x43], off);
+  off += 4; // AIFC
+
+  // COMM chunk
+  bytes.set([0x43, 0x4f, 0x4d, 0x4d], off);
+  off += 4;
+  view.setUint32(off, commSize, false);
+  off += 4;
+  view.setUint16(off, channels, false);
+  off += 2;
+  view.setUint32(off, numFrames, false);
+  off += 4;
+  view.setUint16(off, 16, false);
+  off += 2;
+  write80BitFloat(bytes, off, sampleRate);
+  off += 10;
+  bytes.set([0x73, 0x6f, 0x77, 0x74], off);
+  off += 4; // 'sowt'
+  bytes[off] = 0;
+  off++; // pstring length = 0
+  bytes[off] = 0;
+  off++; // pad byte
+
+  // SSND chunk
+  bytes.set([0x53, 0x53, 0x4e, 0x44], off);
+  off += 4;
+  view.setUint32(off, ssndSize, false);
+  off += 4;
+  view.setUint32(off, 0, false);
+  off += 4;
+  view.setUint32(off, 0, false);
+  off += 4;
+
+  // 440 Hz sine, little-endian 16-bit PCM
+  for (let i = 0; i < numFrames; i++) {
+    const sample = Math.round(Math.sin((2 * Math.PI * 440 * i) / sampleRate) * 32767);
+    for (let ch = 0; ch < channels; ch++) {
+      view.setInt16(off + (i * channels + ch) * 2, sample, true);
+    }
+  }
+
+  return buf;
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 /**
@@ -173,11 +307,45 @@ describe("decodeAudio", () => {
     expect(result).not.toBeNull();
   });
 
-  test("AIFF file tries fast path then falls through to audio-decode", async () => {
-    // An AIFF buffer fails decodeWav (not RIFF/WAVE), so falls to audio-decode
-    const buf = new ArrayBuffer(100);
+  // ── Slice 5: AIFF mono ──────────────────────────────────────────────────────
+
+  test("AIFF mono 16-bit decodes with correct sampleRate and frame count", async () => {
+    const buf = makeSineAiff(1, 1, 44100);
     const result = await decodeAudio(buf, "kick.aiff");
     expect(result).not.toBeNull();
+    expect(result?.sampleRate).toBe(44100);
+    expect(result?.mono.length).toBe(44100);
+  });
+
+  // ── Slice 6: AIFF stereo downmix ───────────────────────────────────────────
+
+  test("AIFF stereo 16-bit downmixes to mono with correct frame count", async () => {
+    const buf = makeSineAiff(1, 2, 44100);
+    const result = await decodeAudio(buf, "stereo.aiff");
+    expect(result).not.toBeNull();
+    expect(result?.mono.length).toBe(44100); // frames, not samples * channels
+  });
+
+  // ── Slice 7: AIFF-C sowt (little-endian) ───────────────────────────────────
+
+  test("AIFF-C sowt (little-endian) decodes correctly via .aif extension", async () => {
+    const buf = makeSowtAifc(1, 1, 44100);
+    const result = await decodeAudio(buf, "kick.aif");
+    expect(result).not.toBeNull();
+    expect(result?.sampleRate).toBe(44100);
+    expect(result?.mono.length).toBe(44100);
+  });
+
+  // ── Slice 8: corrupt AIFF ──────────────────────────────────────────────────
+
+  test("AIFF with FORM/AIFF magic but no chunks returns null without throwing", async () => {
+    const buf = new ArrayBuffer(12);
+    const bytes = new Uint8Array(buf);
+    bytes.set([0x46, 0x4f, 0x52, 0x4d]); // FORM
+    new DataView(buf).setUint32(4, 4, false);
+    bytes.set([0x41, 0x49, 0x46, 0x46], 8); // AIFF
+    const result = await decodeAudio(buf, "bad.aiff");
+    expect(result).toBeNull();
   });
 
   test("unrecognized binary with .wav extension returns null without throwing", async () => {

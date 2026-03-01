@@ -5,7 +5,7 @@
  * Posts:    { type: "RESULT", compositeId, bpm, key, keyCamelot, lufsIntegrated, lufsPeak, dynamicRange, duration, sampleRate }
  *      or:  { type: "ERROR",  compositeId, error: string }
  *
- * Supported formats: WAV (fast path), MP3 (fast path via mpg123-decoder), FLAC, OGG, OPUS (via audio-decode).
+ * Supported formats: WAV (fast path), AIFF/AIFF-C (fast path), MP3 (fast path via mpg123-decoder), FLAC, OGG, OPUS (via audio-decode).
  * Duration is computed via mediabunny (pure-TS demuxer, no WebCodecs needed).
  */
 
@@ -15,7 +15,15 @@ import { MPEGDecoder } from "mpg123-decoder";
 import { detectBpm } from "./bpmDetection";
 import { detectKey } from "./keyDetection";
 import { measureLufs } from "./lufs";
-import { parseWavChunks, readUint16LE, readUint32LE } from "./wavUtils";
+import {
+  parseAiffChunks,
+  parseWavChunks,
+  read80BitFloat,
+  readUint16BE,
+  readUint16LE,
+  readUint32BE,
+  readUint32LE,
+} from "./wavUtils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -93,6 +101,75 @@ function decodeWav(buffer: ArrayBuffer): WavData | null {
   return { mono, sampleRate };
 }
 
+// ─── AIFF fast-path decoder ───────────────────────────────────────────────────
+
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: PCM sample-type branching mirrors decodeWav
+function decodeAiff(buffer: ArrayBuffer): WavData | null {
+  const buf = new Uint8Array(buffer);
+  const chunks = parseAiffChunks(buf);
+  if (!chunks) return null;
+
+  const comm = chunks.find((c) => c.id === "COMM");
+  if (!comm || comm.size < 18) return null;
+
+  const channels = readUint16BE(buf, comm.offset);
+  const numSampleFrames = readUint32BE(buf, comm.offset + 2);
+  const bitDepth = readUint16BE(buf, comm.offset + 6);
+  const sampleRate = read80BitFloat(buf, comm.offset + 8);
+
+  // Check compression type for AIFF-C (AIFC marker at bytes 8-11)
+  const isAifc = buf[8] === 0x41 && buf[9] === 0x49 && buf[10] === 0x46 && buf[11] === 0x43;
+  let littleEndian = false;
+  if (isAifc) {
+    if (comm.size < 22) return null;
+    const ct = String.fromCharCode(
+      buf[comm.offset + 18],
+      buf[comm.offset + 19],
+      buf[comm.offset + 20],
+      buf[comm.offset + 21],
+    );
+    if (ct !== "NONE" && ct !== "sowt") return null; // unsupported compression
+    littleEndian = ct === "sowt";
+  }
+
+  const ssnd = chunks.find((c) => c.id === "SSND");
+  if (!ssnd || channels === 0 || sampleRate === 0) return null;
+
+  const ssndSkip = readUint32BE(buf, ssnd.offset); // SSND 'offset' field, usually 0
+  const dataStart = ssnd.offset + 8 + ssndSkip; // skip offset(4) + blockSize(4)
+  const bytesPerSample = (bitDepth + 7) >> 3;
+  const mono = new Float32Array(numSampleFrames);
+  const view = new DataView(buffer);
+
+  for (let i = 0; i < numSampleFrames; i++) {
+    let sum = 0;
+    for (let ch = 0; ch < channels; ch++) {
+      const pos = dataStart + (i * channels + ch) * bytesPerSample;
+      let sample = 0;
+      if (bitDepth === 8) {
+        sample = view.getInt8(pos) / 128;
+      } else if (bitDepth === 16) {
+        sample = view.getInt16(pos, littleEndian) / 32768;
+      } else if (bitDepth === 24) {
+        let v: number;
+        if (littleEndian) {
+          v = buf[pos] | (buf[pos + 1] << 8) | (buf[pos + 2] << 16);
+        } else {
+          v = (buf[pos] << 16) | (buf[pos + 1] << 8) | buf[pos + 2];
+        }
+        if (v & 0x800000) v |= ~0xffffff; // sign-extend
+        sample = v / 8388608;
+      } else if (bitDepth === 32) {
+        sample = view.getInt32(pos, littleEndian) / 2147483648;
+      }
+      sum += sample;
+    }
+    mono[i] = sum / channels;
+  }
+
+  return { mono, sampleRate };
+}
+
 // ─── Multi-channel to mono mix ────────────────────────────────────────────────
 
 function mixToMono(channels: Float32Array[]): Float32Array {
@@ -132,7 +209,10 @@ async function decodeMp3(buffer: ArrayBuffer): Promise<WavData | null> {
  */
 export async function decodeAudio(buffer: ArrayBuffer, path: string): Promise<WavData | null> {
   const ext = path.split(".").pop()?.toLowerCase();
-  if (ext === "wav" || ext === "aif" || ext === "aiff") {
+  if (ext === "aif" || ext === "aiff") {
+    return decodeAiff(buffer); // audio-decode doesn't handle AIFF, no fallback needed
+  }
+  if (ext === "wav") {
     const result = decodeWav(buffer);
     if (result) return result;
     // Fall through to audio-decode for non-PCM WAV (e.g. ADPCM, float extensible)
@@ -156,6 +236,18 @@ export async function decodeAudio(buffer: ArrayBuffer, path: string): Promise<Wa
 // ─── Duration via mediabunny demuxer (no WebCodecs needed) ───────────────────
 
 async function computeDuration(buffer: ArrayBuffer): Promise<number | null> {
+  // AIFF fast path: derive duration from COMM chunk (mediabunny doesn't support AIFF)
+  const buf = new Uint8Array(buffer);
+  const aiffChunks = parseAiffChunks(buf);
+  if (aiffChunks) {
+    const comm = aiffChunks.find((c) => c.id === "COMM");
+    if (comm && comm.size >= 18) {
+      const numSampleFrames = readUint32BE(buf, comm.offset + 2);
+      const sampleRate = read80BitFloat(buf, comm.offset + 8);
+      if (sampleRate > 0) return numSampleFrames / sampleRate;
+    }
+  }
+  // Fall back to mediabunny for all other formats
   try {
     const input = new Input({ source: new BufferSource(buffer), formats: ALL_FORMATS });
     return await input.computeDuration();
